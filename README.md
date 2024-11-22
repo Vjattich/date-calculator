@@ -1,2 +1,1 @@
-# date-calculator
-Very simple (html+js) date calculator with simple UI
+Simple html page that can calc date in every way
