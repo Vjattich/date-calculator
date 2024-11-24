@@ -37,8 +37,10 @@ const onKeyUp = function (e) {
     }
 
     let elements = toElement(inputs),
+        value = elements[DATE_INPUT_NUMBER].value,
         //parse to date, date input val
-        date = chrono.parse(elements[DATE_INPUT_NUMBER].value)[0],
+        parse = chrono.parse(value),
+        date = parse[0],
         //get val of add\subtract unit
         add = elements[ADD_INPUT_NUMBER].value,
         //take unit from value
@@ -47,17 +49,17 @@ const onKeyUp = function (e) {
         //replace unit from value
         val = add.replaceAll(unit, '');
 
-    if ('' === unit) {
+    if (add.length > 0 && '' === unit) {
         toggleTooltip()
         return;
     }
 
-    //start of day (00:00)
-    let startOfDay = date.start.moment().startOf('day'),
+    let moment = date.start.moment(),
+        fixedDate = date.text === 'now' && date.tags.ENCasualDateParser ? moment :  moment.startOf('day'),
         //result
-        result = startOfDay.add(val, formattedUnit),
+        result = fixedDate.add(val, formattedUnit),
         //format to EUROPEAN date
-        formattedResult = result.format('DD.MM.YYYY mm:ss dddd MMMM');
+        formattedResult = result.format('DD.MM.YYYY HH:mm:ss dddd MMMM');
 
     document.getElementById('result').textContent = formattedResult;
 
