@@ -37,33 +37,79 @@ const onKeyUp = function (e) {
     }
 
     let elements = toElement(inputs),
-        value = elements[DATE_INPUT_NUMBER].value,
+        value_1 = elements[DATE_INPUT_NUMBER].value,
         //parse to date, date input val
-        parse = chrono.parse(value),
-        date = parse[0],
+        firstDate = chrono.parse(value_1)[0],
         //get val of add\subtract unit
-        add = elements[ADD_INPUT_NUMBER].value,
-        //take unit from value
-        unit = add.replace(/[^A-Za-z]/g, ''),
-        formattedUnit = formatUnit(unit),
-        //replace unit from value
-        val = add.replaceAll(unit, '');
+        value_2 = elements[ADD_INPUT_NUMBER].value,
+        //maybe its date
+        secondDate = chrono.parse(value_2)[0];
 
-    if (add.length > 0 && '' === unit) {
-        toggleTooltip()
-        return;
+    let res;
+
+    if (null == secondDate) {
+
+            //take unit from value
+        let unit = value_2.replace(/[^A-Za-z]/g, ''),
+            formattedUnit = formatUnit(unit),
+            //replace unit from value
+            operation = value_2.replaceAll(unit, '');
+
+        if (value_2.length > 0 && '' === unit) {
+            toggleTooltip()
+            return;
+        }
+
+        let moment = firstDate.start.moment(),
+            fixedDate = firstDate.text === 'now' && firstDate.tags.ENCasualDateParser ? moment : moment.startOf('day'),
+            //result
+            result = fixedDate.add(operation, formattedUnit);
+
+        res = result.format('DD.MM.YYYY HH:mm:ss dddd MMMM');
+
+    } else {
+
+        let moment_1 = firstDate.start.moment(),
+            fixedDate_1 = firstDate.text === 'now' && firstDate.tags.ENCasualDateParser ? moment_1 : moment_1.startOf('day'),
+            moment_2 = secondDate.start.moment(),
+            fixedDate_2 = secondDate.text === 'now' && secondDate.tags.ENCasualDateParser ? moment_2 : moment_2.startOf('day'),
+            //result
+            result = fixedDate_1.diff(fixedDate_2),
+            duration = moment.duration(result);
+
+        res = formatDuration(duration);
+
     }
 
-    let moment = date.start.moment(),
-        fixedDate = date.text === 'now' && date.tags.ENCasualDateParser ? moment :  moment.startOf('day'),
-        //result
-        result = fixedDate.add(val, formattedUnit),
-        //format to EUROPEAN date
-        formattedResult = result.format('DD.MM.YYYY HH:mm:ss dddd MMMM');
+    document.getElementById('result').textContent = res;
+};
 
-    document.getElementById('result').textContent = formattedResult;
+const formatDuration = function (duration) {
 
-}
+    let s = [
+        {val: duration.years(), unit: 'years'},
+        {val: duration.months(), unit: 'months'},
+        {val: duration.days(), unit: 'days'},
+        {val: duration.hours(), unit: 'hours'},
+        {val: duration.minutes(), unit: 'minutes'},
+        {val: duration.seconds(), unit: 'seconds'}
+    ]
+
+    let result = '';
+
+    for (let i = 0; i < s.length; i++) {
+        const elem = s[i];
+        //ignore hours and rest if its null
+        if (!elem.val) {
+            continue;
+        }
+
+        result += Math.abs(elem.val) + ' ' + elem.unit + ' ';
+    }
+
+    return result;
+};
+
 
 const debounceTooltip = (callback, wait) => {
     return (...args) => {
@@ -95,7 +141,8 @@ const debounceGuide = (callback, wait) => {
 }
 
 const toggleGuide = function () {
-//todo toggle guide need to turn or off by press; and u cant cancel the fade animation
+    //todo 118 years 11 months 25 days test + result
+    // todo game with exampels on guide
     let elem = document.getElementsByClassName('guide');
     let callback = toggleOpacity.bind(null, elem);
     if (guideTimeunitId === null) {

@@ -8,10 +8,29 @@
 <div id="qunit-fixture"></div>
 <script src="https://code.jquery.com/qunit/qunit-2.20.1.js"></script>
 <script src="index.js"></script>
+<script src="chrono.min.js"></script>
 </body>
 <script>
 
     QUnit.module('page', () => {
+
+        QUnit.test('format duration test', assert => {
+            //GIVEN
+            let case1 = moment.duration("-PT245542H22M4.365S"),
+                case2 = moment.duration("PT245240H00M0.000S"),
+                case3 = moment.duration("-PT000002H22M1.111S")
+            ;
+
+            //WHEN
+            let result1 = formatDuration(case1),
+                result2 = formatDuration(case2),
+                result3 = formatDuration(case3);
+
+            //THEN
+            assert.equal(result1, "28 years 3 days 22 hours 22 minutes 4 seconds ");
+            assert.equal(result2, "27 years 11 months 21 days 8 hours ");
+            assert.equal(result3, "2 hours 22 minutes 1 seconds ");
+        })
 
     });
 
