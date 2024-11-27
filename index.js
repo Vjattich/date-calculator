@@ -49,7 +49,7 @@ const onKeyUp = function (e) {
 
     if (null == secondDate) {
 
-            //take unit from value
+        //take unit from value
         let unit = value_2.replace(/[^A-Za-z]/g, ''),
             formattedUnit = formatUnit(unit),
             //replace unit from value
@@ -63,9 +63,12 @@ const onKeyUp = function (e) {
         let moment = firstDate.start.moment(),
             fixedDate = firstDate.text === 'now' && firstDate.tags.ENCasualDateParser ? moment : moment.startOf('day'),
             //result
-            result = fixedDate.add(operation, formattedUnit);
+            result = fixedDate.add(operation, formattedUnit),
+            //if time without clockunit don't need to render it
+            hasNotClockUnit = (result.hours() && result.minutes() && result.minutes()) === 0,
+            pattern = hasNotClockUnit ? 'DD.MM.YYYY <br> dddd MMMM' : 'DD.MM.YYYY HH:mm:ss <br> dddd MMMM';
 
-        res = result.format('DD.MM.YYYY HH:mm:ss dddd MMMM');
+        res = result.format(pattern);
 
     } else {
 
@@ -81,7 +84,7 @@ const onKeyUp = function (e) {
 
     }
 
-    document.getElementById('result').textContent = res;
+    document.getElementById('result').innerHTML = res;
 };
 
 const formatDuration = function (duration) {
@@ -140,22 +143,22 @@ const debounceGuide = (callback, wait) => {
     };
 }
 
-const toggleGuide = function () {
-    //todo 118 years 11 months 25 days test + result
-    // todo game with exampels on guide
-    let elem = document.getElementsByClassName('guide');
-    let callback = toggleOpacity.bind(null, elem);
-    if (guideTimeunitId === null) {
-        callback()
-    }
-    debounceGuide(callback, 8000)();
-};
-
 const toggleOpacity = function (elements) {
     Array.from(elements).forEach(a => {
         a.classList.toggle('opacity-0');
         a.classList.toggle('opacity-1');
     });
+};
+
+const toggleGuide = function () {
+    //todo 118 years 11 months 25 days test + result
+    // todo game with exampels on guide
+    let questionMark = document.getElementsByClassName('question-mark')[0],
+        next = document.getElementsByClassName('next')[0],
+        prev = document.getElementsByClassName('prev')[0]
+
+    next.classList.toggle('hidden');
+    prev.classList.toggle('hidden');
 };
 
 //check requests to outher sites
@@ -168,8 +171,10 @@ window.onload = function () {
     })
 
     let questionMark = document.getElementsByClassName('question-mark')[0];
+    let ddd = document.getElementsByClassName('next')[0];
 
     questionMark.addEventListener('click', toggleGuide)
+    ddd.addEventListener('click', toggleGuide)
 
 }
 
