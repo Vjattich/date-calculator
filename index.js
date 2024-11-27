@@ -7,6 +7,8 @@ const ADD_INPUT_NUMBER = '2';
 let guideTimeunitId = null;
 let tooltipTimeunitId = null;
 
+let guideStage = -1;
+
 const toElement = function (elements) {
     return elements
         .map(e => ({value: e.value, pos: e.classList[NUMBER_POSITION], self: e}))
@@ -152,7 +154,10 @@ const toggleOpacity = function (elements) {
 
 const toggleGuide = function () {
     //todo 118 years 11 months 25 days test + result
-    // todo game with exampels on guide
+    //todo game with exampels on guide\
+
+    guideStage = 0;
+
     let questionMark = document.getElementsByClassName('question-mark')[0],
         next = document.getElementsByClassName('next')[0],
         prev = document.getElementsByClassName('prev')[0]
@@ -161,7 +166,31 @@ const toggleGuide = function () {
     prev.classList.toggle('hidden');
 };
 
-//check requests to outher sites
+const toggleStage = function (isNext) {
+
+    if (isNext) {
+        guideStage = guideStage + 1;
+    }
+    else {
+        guideStage = guideStage - 1;
+    }
+
+    console.log(guideStage);
+
+    if (guideStage > 2) {
+        toggleGuide();
+    }
+
+    if (guideStage === 1) {
+    }
+
+
+    if (guideStage === 2) {
+    }
+
+};
+
+//check requests to other sites
 window.onload = function () {
 
     let inputs = Array.from(document.getElementsByClassName('input'));
@@ -170,11 +199,13 @@ window.onload = function () {
         input.addEventListener('keyup', onKeyUp)
     })
 
-    let questionMark = document.getElementsByClassName('question-mark')[0];
-    let ddd = document.getElementsByClassName('next')[0];
+    let questionMark = document.getElementsByClassName('question-mark')[0],
+        next = document.getElementsByClassName('next')[0],
+        prev = document.getElementsByClassName('prev')[0];
 
-    questionMark.addEventListener('click', toggleGuide)
-    ddd.addEventListener('click', toggleGuide)
+    questionMark.addEventListener('click', toggleGuide);
+    next.addEventListener('click', () => toggleStage(true));
+    prev.addEventListener('click', () => toggleStage(false));
 
 }
 
