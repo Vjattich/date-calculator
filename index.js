@@ -7,6 +7,8 @@ const ADD_INPUT_NUMBER = '2';
 let guideTimeunitId = null;
 let tooltipTimeunitId = null;
 
+let guideStage = 0;
+
 const toElement = function (elements) {
     return elements
         .map(e => ({value: e.value, pos: e.classList[NUMBER_POSITION], self: e}))
@@ -49,7 +51,7 @@ const onKeyUp = function (e) {
 
     if (null == secondDate) {
 
-            //take unit from value
+        //take unit from value
         let unit = value_2.replace(/[^A-Za-z]/g, ''),
             formattedUnit = formatUnit(unit),
             //replace unit from value
@@ -63,9 +65,12 @@ const onKeyUp = function (e) {
         let moment = firstDate.start.moment(),
             fixedDate = firstDate.text === 'now' && firstDate.tags.ENCasualDateParser ? moment : moment.startOf('day'),
             //result
-            result = fixedDate.add(operation, formattedUnit);
+            result = fixedDate.add(operation, formattedUnit),
+            //if time without clockunit don't need to render it
+            hasNotClockUnit = (result.hours() && result.minutes() && result.minutes()) === 0,
+            pattern = hasNotClockUnit ? 'DD.MM.YYYY <br> dddd MMMM' : 'DD.MM.YYYY HH:mm:ss <br> dddd MMMM';
 
-        res = result.format('DD.MM.YYYY HH:mm:ss dddd MMMM');
+        res = result.format(pattern);
 
     } else {
 
@@ -81,7 +86,28 @@ const onKeyUp = function (e) {
 
     }
 
-    document.getElementById('result').textContent = res;
+    document.getElementById('result').innerHTML = res;
+
+
+    if (guideStage > 0) {
+
+        let unitResultTooltip = document.getElementById('unit-result-tooltip'),
+            dateResultTooltip = document.getElementById('date-result-tooltip');
+
+        if (isNotVisible(unitResultTooltip) && guideStage === 1) {
+            toggleOpacity(unitResultTooltip);
+        }
+
+        if (isNotVisible(dateResultTooltip) && guideStage === 2) {
+            toggleOpacity(dateResultTooltip);
+        }
+
+    }
+
+};
+
+const isNotVisible = function (e) {
+    return e.classList.contains('opacity-0');
 };
 
 const formatDuration = function (duration) {
@@ -122,7 +148,7 @@ const debounceTooltip = (callback, wait) => {
 }
 
 const toggleTooltip = function () {
-    let elem = document.getElementsByClassName('tooltip');
+    let elem = document.getElementById('unit-tooltip');
     let callback = toggleOpacity.bind(null, elem);
     if (tooltipTimeunitId === null) {
         callback()
@@ -140,25 +166,126 @@ const debounceGuide = (callback, wait) => {
     };
 }
 
-const toggleGuide = function () {
-    //todo 118 years 11 months 25 days test + result
-    // todo game with exampels on guide
-    let elem = document.getElementsByClassName('guide');
-    let callback = toggleOpacity.bind(null, elem);
-    if (guideTimeunitId === null) {
-        callback()
-    }
-    debounceGuide(callback, 8000)();
+const toggleOpacity = function (element) {
+    element.classList.toggle('opacity-0')
+    element.classList.toggle('opacity-1')
 };
 
-const toggleOpacity = function (elements) {
-    Array.from(elements).forEach(a => {
-        a.classList.toggle('opacity-0');
-        a.classList.toggle('opacity-1');
+const toggleGuide = function () {
+    //todo 118 years 11 months 25 days test + result
+    //todo game with exampels on guide\
+
+    guideStage = 0;
+
+    let questionMark = document.getElementsByClassName('question-mark')[0],
+        next = document.getElementsByClassName('next')[0],
+        prev = document.getElementsByClassName('prev')[0]
+
+    next.classList.toggle('hidden');
+    prev.classList.toggle('hidden');
+
+    let inputs = document.getElementsByClassName('input'),
+        input_1 = inputs[0],
+        input_2 = inputs[1],
+        result = document.getElementById('result'),
+        tooltips = document.getElementById('tooltips');
+
+    input_1.value = null;
+    input_2.value = null;
+    input_1.readOnly = false;
+    input_2.readOnly = false;
+    result.innerHTML = null;
+    Array.from(tooltips.children).forEach(a => {
+        if (!a.classList.contains('opacity-0')) {
+            toggleOpacity(a)
+        }
     });
 };
 
-//check requests to outher sites
+const toggleStage = function (isNext) {
+
+    if (isNext) {
+        guideStage = guideStage + 1;
+    } else {
+        guideStage = guideStage - 1;
+    }
+
+    let inputs = document.getElementsByClassName('input'),
+        input_1 = inputs[0],
+        input_2 = inputs[1],
+        result = document.getElementById('result');
+
+    if (guideStage > 3) {
+        toggleGuide();
+    }
+
+    let pressEnterTooltip = document.getElementById('press-enter-tooltip'),
+        putUnitTooltip = document.getElementById('put-unit-tooltip'),
+        putDateTooltip = document.getElementById('put-date-tooltip'),
+        unitResultTooltip = document.getElementById('unit-result-tooltip');
+
+    if (guideStage === 1) {
+        input_1.value = '22.11.1996';
+        input_2.value = '33y';
+        result.innerHTML = null;
+        input_1.readOnly = true;
+        input_2.readOnly = true;
+
+        //show explanations
+        toggleOpacity(pressEnterTooltip)
+        toggleOpacity(putUnitTooltip)
+        toggleOpacity(putDateTooltip)
+    }
+
+    let putSecondDateTooltip = document.getElementById('put-second-date-tooltip'),
+        dateResultTooltip = document.getElementById('date-result-tooltip');
+
+    if (guideStage === 2) {
+
+        //hide prev explanations
+        toggleOpacity(pressEnterTooltip)
+        toggleOpacity(putUnitTooltip)
+        toggleOpacity(putDateTooltip)
+        if (false === isNotVisible(unitResultTooltip)) {
+            toggleOpacity(unitResultTooltip);
+        }
+
+        input_1.value = '22.11.1996';
+        input_2.value = '18.11.2115';
+        result.innerHTML = null;
+        input_1.readOnly = true;
+        input_2.readOnly = true;
+
+        toggleOpacity(pressEnterTooltip)
+        toggleOpacity(putDateTooltip)
+        toggleOpacity(putSecondDateTooltip)
+    }
+
+    let putWordsTooltip = document.getElementById('put-words-tooltip');
+
+    if (guideStage === 3) {
+
+        //hide prev explanations
+        toggleOpacity(pressEnterTooltip)
+        toggleOpacity(putDateTooltip)
+        toggleOpacity(putSecondDateTooltip)
+        if (false === isNotVisible(dateResultTooltip)) {
+            toggleOpacity(dateResultTooltip);
+        }
+
+        input_1.value = 'now';
+        input_2.value = 'next friday';
+        result.innerHTML = null;
+        input_1.readOnly = true;
+        input_2.readOnly = true;
+
+        toggleOpacity(pressEnterTooltip)
+        toggleOpacity(putWordsTooltip)
+    }
+
+};
+
+//check requests to other sites
 window.onload = function () {
 
     let inputs = Array.from(document.getElementsByClassName('input'));
@@ -167,9 +294,13 @@ window.onload = function () {
         input.addEventListener('keyup', onKeyUp)
     })
 
-    let questionMark = document.getElementsByClassName('question-mark')[0];
+    let questionMark = document.getElementsByClassName('question-mark')[0],
+        next = document.getElementsByClassName('next')[0],
+        prev = document.getElementsByClassName('prev')[0];
 
-    questionMark.addEventListener('click', toggleGuide)
+    questionMark.addEventListener('click', toggleGuide);
+    next.addEventListener('click', () => toggleStage(true));
+    prev.addEventListener('click', () => toggleStage(false));
 
 }
 
