@@ -171,9 +171,13 @@ const toggleOpacity = function (element) {
     element.classList.toggle('opacity-1')
 };
 
-const toggleGuide = function () {
+    const toggleGuide = function (e) {
     //todo 118 years 11 months 25 days test + result
-    //todo game with exampels on guide\
+    //phone units are bad css
+
+    if (guideStage !== 0 && e.type === 'click') {
+        e = {type: 'system'};
+    }
 
     guideStage = 0;
 
@@ -200,6 +204,10 @@ const toggleGuide = function () {
             toggleOpacity(a)
         }
     });
+
+    if (e.type === 'click') {
+        toggleStage(true);
+    }
 };
 
 const toggleStage = function (isNext) {
@@ -216,7 +224,7 @@ const toggleStage = function (isNext) {
         result = document.getElementById('result');
 
     if (guideStage > 3) {
-        toggleGuide();
+        toggleGuide({type: 'system'});
     }
 
     let pressEnterTooltip = document.getElementById('press-enter-tooltip'),
@@ -235,6 +243,7 @@ const toggleStage = function (isNext) {
         toggleOpacity(pressEnterTooltip)
         toggleOpacity(putUnitTooltip)
         toggleOpacity(putDateTooltip)
+        onKeyUp({keyCode: ENTER_KEY})
     }
 
     let putSecondDateTooltip = document.getElementById('put-second-date-tooltip'),
@@ -259,6 +268,7 @@ const toggleStage = function (isNext) {
         toggleOpacity(pressEnterTooltip)
         toggleOpacity(putDateTooltip)
         toggleOpacity(putSecondDateTooltip)
+        onKeyUp({keyCode: ENTER_KEY})
     }
 
     let putWordsTooltip = document.getElementById('put-words-tooltip');
@@ -281,6 +291,7 @@ const toggleStage = function (isNext) {
 
         toggleOpacity(pressEnterTooltip)
         toggleOpacity(putWordsTooltip)
+        onKeyUp({keyCode: ENTER_KEY})
     }
 
 };
