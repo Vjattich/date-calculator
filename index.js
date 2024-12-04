@@ -68,7 +68,7 @@ const onKeyUp = function (e) {
             result = fixedDate.add(operation, formattedUnit),
             //if time without clockunit don't need to render it
             hasNotClockUnit = (result.hours() && result.minutes() && result.minutes()) === 0,
-            pattern = hasNotClockUnit ? 'DD.MM.YYYY <br> dddd MMMM' : 'DD.MM.YYYY HH:mm:ss <br> dddd MMMM';
+            pattern = hasNotClockUnit ? 'DD.MM.YYYY dddd MMMM' : 'DD.MM.YYYY HH:mm:ss dddd MMMM';
 
         res = result.format(pattern);
 
