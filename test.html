@@ -16,21 +16,53 @@
 
         QUnit.test('format duration test', assert => {
             //GIVEN
-            let case1 = moment.duration("-PT245542H22M4.365S"),
-                case2 = moment.duration("PT245240H00M0.000S"),
-                case3 = moment.duration("-PT000002H22M1.111S")
+            let case1 = moment.duration("-PT245542H22M4.365S")
+                , case2 = moment.duration("PT245240H00M0.000S")
+                , case3 = moment.duration("-PT000002H22M1.111S")
             ;
 
             //WHEN
-            let result1 = formatDuration(case1),
-                result2 = formatDuration(case2),
-                result3 = formatDuration(case3);
+            let result1 = formatDuration(case1)
+                , result2 = formatDuration(case2)
+                , result3 = formatDuration(case3);
 
             //THEN
             assert.equal(result1, "28 years 3 days 22 hours 22 minutes 4 seconds ");
             assert.equal(result2, "27 years 11 months 21 days 8 hours ");
             assert.equal(result3, "2 hours 22 minutes 1 seconds ");
         })
+
+        QUnit.test('additional format for sec and min test', assert => {
+            //GIVEN
+            let case1 = 'min'
+                , case2 = 'sec'
+                , case3 = 'minutes'
+                , case4 = 'seconds'
+                , case5 = 'second'
+                , case6 = 'minute'
+                , case7 = 'sunday'
+            ;
+
+            //WHEN
+            let result1 = formatUnit(case1)
+                , result2 = formatUnit(case2)
+                , result3 = formatUnit(case3)
+                , result4 = formatUnit(case4)
+                , result5 = formatUnit(case5)
+                , result6 = formatUnit(case6)
+                , result7 = formatUnit(case7)
+            ;
+
+            //THEN
+            assert.equal(result1, "minutes");
+            assert.equal(result2, "seconds");
+            assert.equal(result3, "minutes");
+            assert.equal(result4, "seconds");
+            assert.equal(result5, "seconds");
+            assert.equal(result6, "minutes");
+            assert.equal(result7, "sunday");
+        })
+
 
     });
 
