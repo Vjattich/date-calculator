@@ -63,7 +63,7 @@ const onKeyUp = function (e) {
         }
 
         let moment = firstDate.start.moment(),
-            fixedDate = firstDate.text === 'now' && firstDate.tags.ENCasualDateParser ? moment : moment.startOf('day'),
+            fixedDate = fixDate(firstDate, moment),
             //result
             result = fixedDate.add(operation, formattedUnit),
             //if time without clockunit don't need to render it
@@ -75,9 +75,9 @@ const onKeyUp = function (e) {
     } else {
 
         let moment_1 = firstDate.start.moment(),
-            fixedDate_1 = firstDate.text === 'now' && firstDate.tags.ENCasualDateParser ? moment_1 : moment_1.startOf('day'),
+            fixedDate_1 = fixDate(firstDate, moment_1),
             moment_2 = secondDate.start.moment(),
-            fixedDate_2 = secondDate.text === 'now' && secondDate.tags.ENCasualDateParser ? moment_2 : moment_2.startOf('day'),
+            fixedDate_2 = fixDate(secondDate, moment_2),
             //result
             result = fixedDate_1.diff(fixedDate_2),
             duration = moment.duration(result);
@@ -136,6 +136,15 @@ const formatDuration = function (duration) {
     return result;
 };
 
+const fixDate = function (chronoObj, momentDate) {
+
+    if (chronoObj.text === 'today') {
+        return momentDate.startOf('day')
+    }
+
+    return momentDate;
+};
+
 
 const debounceTooltip = (callback, wait) => {
     return (...args) => {
@@ -171,8 +180,11 @@ const toggleOpacity = function (element) {
     element.classList.toggle('opacity-1')
 };
 
-    const toggleGuide = function (e) {
+const toggleGuide = function (e) {
     //todo 118 years 11 months 25 days test + result
+    //test 01.01.2020 | 01\01\2020 + days = differen formats
+    //test 2024-12-09 19:08:28 - 2024-12-10 11:44:25  = bad res; need moment(secondDate.ref)
+    //test 22.11.1996 22.11.2030 - bug
     //phone units are bad css
 
     if (guideStage !== 0 && e.type === 'click') {
