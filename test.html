@@ -63,6 +63,57 @@
             assert.equal(result7, "sunday");
         })
 
+        QUnit.test('fixing moment dates depending on args', assert => {
+            //GIVEN
+            let case1 = chrono.parse('today')[0]
+                , case2 = chrono.parse('now')[0]
+                , case3 = chrono.parse('2024-12-09 19:08:28')[0]
+                , case4 = chrono.parse('22.11.1996')[0]
+            ;
+
+            let case1_moment_date = case1.start.moment()
+                , case2_moment_date = case2.start.moment()
+                , case3_moment_date = case3.start.moment()
+                , case4_moment_date = case4.start.moment()
+            ;
+
+            //WHEN
+            let result1 = fixDate(case1, case1.start.moment())
+                , result2 = fixDate(case2, case2.start.moment())
+                , result3 = fixDate(case3, case3.start.moment())
+                , result4 = fixDate(case4, case4.start.moment())
+            ;
+
+            //THEN
+            assert.deepEqual(result1, case1_moment_date.startOf('day'));
+            assert.deepEqual(result2, case2_moment_date);
+            assert.deepEqual(result3, case3_moment_date);
+            assert.deepEqual(result4, case4_moment_date);
+        })
+
+        QUnit.test('chrono dates parse test', assert => {
+            //GIVEN
+            let case1 = '03.01.1996'
+                , case2 = '22.11.1996'
+                , case3 = '1996-03-01'
+                , case4 = '03/01/1996'
+            ;
+
+            //WHEN
+            let result1 = parseDate(case1)
+                , result2 = parseDate(case2)
+                , result3 = parseDate(case3)
+                , result4 = parseDate(case4)
+            ;
+
+            debugger
+            //THEN
+            assert.deepEqual(result1.start.knownValues, {day: 3, month: 1, year: 1996});
+            assert.deepEqual(result2.start.knownValues, {day: 22, month: 11, year: 1996});
+            assert.deepEqual(result3.start.knownValues, {day: 1, month: 3, year: 1996});
+            assert.deepEqual(result4.start.knownValues, {day: 1, month: 3, year: 1996});
+        })
+
 
     });
 
