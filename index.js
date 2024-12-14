@@ -192,9 +192,6 @@ const toggleOpacity = function (element) {
 
 const toggleGuide = function (e) {
     //todo 118 years 11 months 25 days test + result
-    //test 01.01.2020 | 01\01\2020 + days = differen formats
-    //test 2024-12-09 19:08:28 - 2024-12-10 11:44:25  = bad res; need moment(secondDate.ref)
-    //test 22.11.1996 22.11.2030 - bug
     //phone units are bad css
 
     if (guideStage !== 0 && e.type === 'click') {
@@ -203,8 +200,7 @@ const toggleGuide = function (e) {
 
     guideStage = 0;
 
-    let questionMark = document.getElementsByClassName('question-mark')[0],
-        next = document.getElementsByClassName('next')[0],
+    let next = document.getElementsByClassName('next')[0],
         prev = document.getElementsByClassName('prev')[0]
 
     next.classList.toggle('hidden');
