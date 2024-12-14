@@ -41,11 +41,11 @@ const onKeyUp = function (e) {
     let elements = toElement(inputs),
         value_1 = elements[DATE_INPUT_NUMBER].value,
         //parse to date, date input val
-        firstDate = chrono.parse(value_1)[0],
+        firstDate = parseDate(value_1),
         //get val of add\subtract unit
         value_2 = elements[ADD_INPUT_NUMBER].value,
         //maybe its date
-        secondDate = chrono.parse(value_2)[0];
+        secondDate = parseDate(value_2);
 
     let res;
 
@@ -87,7 +87,6 @@ const onKeyUp = function (e) {
     }
 
     document.getElementById('result').innerHTML = res;
-
 
     if (guideStage > 0) {
 
@@ -135,6 +134,17 @@ const formatDuration = function (duration) {
 
     return result;
 };
+
+const parseDate = function (string) {
+
+    //не понятно почему либа сама это не умеет
+    if (new RegExp('\\d{2}([.\\-])\\d{2}([.\\-])\\d{4}').test(string)) {
+        return chrono.en_GB.parse(string)[0]
+    }
+
+    return chrono.parse(string)[0];
+};
+
 
 const fixDate = function (chronoObj, momentDate) {
 
