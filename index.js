@@ -18,15 +18,55 @@ const toElement = function (elements) {
         }, {});
 };
 
-const formatUnit = function (unit) {
+const formatUnits = function (unit) {
+
+    if (unit === '') {
+        return null;
+    }
+
     if ('minutes'.startsWith(unit)) {
         return 'minutes';
     }
+
     if ('seconds'.startsWith(unit)) {
         return 'seconds';
     }
+
     return unit;
 };
+
+const getUnits = function (string) {
+    return string.replace(/[^A-Za-z]/g, '')
+};
+
+const getOperations = function (string) {
+
+    let parts = []
+    let hasSpace = false;
+    for (let i = 0, wi = 0; i < string.length; i++) {
+
+        let s = string[i];
+
+        let isSpace = s === ' ';
+
+        if (isSpace && hasSpace === true) {
+            wi = wi + 1;
+            hasSpace = false;
+            continue;
+        }
+
+        if (isSpace && hasSpace === false) {
+            hasSpace = true
+        }
+
+        let part = parts[wi];
+
+        parts[wi] = part == null ? s : part + s;
+    }
+
+    return parts;
+};
+
 
 const onKeyUp = function (e) {
 
@@ -52,20 +92,26 @@ const onKeyUp = function (e) {
     if (null == secondDate) {
 
         //take unit from value
-        let unit = value_2.replace(/[^A-Za-z]/g, ''),
-            formattedUnit = formatUnit(unit),
-            //replace unit from value
-            operation = value_2.replaceAll(unit, '');
+        let operations = getOperations(value_2),
+            units = operations.map(getUnits).map(formatUnits).filter(Boolean)
 
-        if (value_2.length > 0 && '' === unit) {
+        if (value_2.length > 0 && units.length === 0) {
             toggleTooltip()
             return;
+        }
+
+        let adds = [];
+        for (let i = 0; i < operations.length; i++) {
+            let operation = operations[i],
+                unit = units[i];
+
+            adds[i] = {num: operation.replaceAll(unit, ''), unit: unit};
         }
 
         let moment = firstDate.start.moment(),
             fixedDate = fixDate(firstDate, moment),
             //result
-            result = fixedDate.add(operation, formattedUnit),
+            result = adds.reduce((acc, s) => acc.add(s.num, s.unit), fixedDate),
             //if time without clockunit don't need to render it
             hasNotClockUnit = (result.hours() && result.minutes() && result.minutes()) === 0,
             pattern = hasNotClockUnit ? 'DD.MM.YYYY dddd MMMM' : 'DD.MM.YYYY HH:mm:ss dddd MMMM';
