@@ -19,10 +19,13 @@
             bottom: 1em;
             left: 50%;
             transform: translateX(-50%);
-            z-index: 10;
+            width: auto;
             display: flex;
             justify-content: center;
             align-items: center;
+            gap: 0.5em;
+            padding: 0 1em;
+            z-index: 10;
         }
 
         .input {
@@ -146,6 +149,8 @@
         .tooltip-left-up {
             position: absolute;
             padding: 5px;
+            margin-top: -3rem;
+            margin-left: -30rem;
             width: auto;
             border-radius: 10px 10px 0px 10px;
             border: 1px solid #aeaeae;
@@ -158,9 +163,15 @@
             transition: opacity 0.5s;
         }
 
-        .hidden {visibility: hidden}
-        .prev {}
-        .next {}
+        .hidden {
+            visibility: hidden
+        }
+
+        .prev {
+        }
+
+        .next {
+        }
 
         @media screen and (max-width: 768px) {
 
@@ -190,20 +201,31 @@
                 gap: 0.5rem;
             }
 
-            .tooltip-right-up, .tooltip-right-down {
+            .tooltip-right-up, .tooltip-right-down, .tooltip-left-up, .tooltip-result {
+                font-size: 12px;
                 margin-left: 0;
                 width: 90%;
                 position: fixed;
                 left: 50%;
                 transform: translateX(-50%);
+                border-radius: 10px 10px 10px 10px;
+            }
+
+            .tooltip-left-up {
+                margin-top: -1.5rem;
+            }
+
+            .tooltip-right-up {
+                margin-top: 2.7rem;
+            }
+
+            .tooltip-right-down {
+                margin-top: 7.5rem;
             }
 
             .tooltip-result {
-                margin-left: 0;
-                width: 90%;
-                position: fixed;
-                left: 50%;
-                transform: translateX(-50%);
+                margin-top: 12rem;
+
             }
 
             /* Adjust QR code size for mobile */
@@ -221,6 +243,18 @@
             }
 
         }
+
+        @media screen and (max-width: 400px) {
+
+            footer {
+                display: none
+            }
+
+            #main {
+                display: none
+            }
+
+        }
     </style>
     <script src="index.js"></script>
     <script src="chrono.min.js"></script>
@@ -235,13 +269,13 @@
         <div id="tooltips">
             <span id="unit-tooltip" class="tooltip-right-up opacity-0">You need to set and unit</span>
             <!--phase 1-->
-            <span id="put-date-tooltip" style="width: 230px; margin-top: -3em; margin-left: -20.8em" class="tooltip-left-up opacity-0">Put any date here in format you know (existed one)</span>
+            <span id="put-date-tooltip" class="tooltip-left-up opacity-0">Put any date here in format you know (existed one)</span>
             <span id="put-unit-tooltip" class="tooltip-right-up opacity-0">Put unit here (10 year, 2M, 3 sec...)</span>
             <span id="press-enter-tooltip" class="tooltip-right-down opacity-0">Put cursor at any input and press enter</span>
             <span id="unit-result-tooltip" class="tooltip-result opacity-0">Result is next date</span>
             <!--phase 2-->
-            <span id="put-second-date-tooltip" style="width: 230px; margin-top: -2.9em;" class="tooltip-right-up opacity-0">You can put second date here to calculate a duration</span>
-            <span id="date-result-tooltip" style="width: 230px; margin-left: -17.5em; margin-top: 4.5em" class="tooltip-result opacity-0">Result is duration between two dates</span>
+            <span id="put-second-date-tooltip" class="tooltip-right-up opacity-0">You can put second date here to calculate a duration</span>
+            <span id="date-result-tooltip" class="tooltip-result opacity-0">Result is duration between two dates</span>
             <!--phase 3-->
             <span id="put-words-tooltip" class="tooltip-right-up opacity-0">You can use usual words</span>
         </div>
