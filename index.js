@@ -4,6 +4,9 @@ const NUMBER_POSITION = 1;
 const DATE_INPUT_NUMBER = '1';
 const ADD_INPUT_NUMBER = '2';
 
+const HAS_TIME_REGEX = new RegExp('\\d{2}:\\d{2}:\\d{2}');
+const RUS_DATE_REGEX = new RegExp('\\d{2}([.\\-])\\d{2}([.\\-])\\d{4}?.*');
+
 let guideTimeunitId = null;
 let tooltipTimeunitId = null;
 
@@ -18,15 +21,68 @@ const toElement = function (elements) {
         }, {});
 };
 
-const formatUnit = function (unit) {
+const formatUnits = function (unit) {
+
+    if (unit === '') {
+        return null;
+    }
+
     if ('minutes'.startsWith(unit)) {
         return 'minutes';
     }
+
     if ('seconds'.startsWith(unit)) {
         return 'seconds';
     }
+
     return unit;
 };
+
+const getUnits = function (string) {
+    return string.replace(/[^A-Za-z]/g, '')
+};
+
+const getOperations = function (string) {
+
+    let parts = []
+    let hasSpace = false;
+    for (let i = 0, wi = 0; i < string.length; i++) {
+
+        let s = string[i];
+
+        let isSpace = s === ' ';
+
+        if (isSpace && hasSpace === true) {
+            wi = wi + 1;
+            hasSpace = false;
+            continue;
+        }
+
+        if (isSpace && hasSpace === false) {
+            hasSpace = true
+        }
+
+        let part = parts[wi] || '';
+
+        parts[wi] = part + s;
+    }
+
+    return parts;
+};
+
+
+const makeAdds = function (operations, units) {
+
+    let adds = [];
+    for (let i = operations.length - 1, j = 0; i >= 0; i--, j++) {
+        let operation = operations[i],
+            unit = units[i];
+
+        adds[j] = {num: operation.replaceAll(unit, '').trim(), unit: unit};
+    }
+
+    return adds;
+}
 
 const onKeyUp = function (e) {
 
@@ -52,22 +108,21 @@ const onKeyUp = function (e) {
     if (null == secondDate) {
 
         //take unit from value
-        let unit = value_2.replace(/[^A-Za-z]/g, ''),
-            formattedUnit = formatUnit(unit),
-            //replace unit from value
-            operation = value_2.replaceAll(unit, '');
+        let operations = getOperations(value_2),
+            units = operations.map(getUnits).map(formatUnits).filter(Boolean)
 
-        if (value_2.length > 0 && '' === unit) {
+        if (value_2.length > 0 && units.length === 0) {
             toggleTooltip()
             return;
         }
 
-        let moment = firstDate.start.moment(),
+        let adds = makeAdds(operations, units),
+            moment = firstDate.start.moment(),
             fixedDate = fixDate(firstDate, moment),
             //result
-            result = fixedDate.add(operation, formattedUnit),
+            result = adds.reduce((acc, s) => acc.add(s.num, s.unit), fixedDate),
             //if time without clockunit don't need to render it
-            hasNotClockUnit = (result.hours() && result.minutes() && result.minutes()) === 0,
+            hasNotClockUnit = (result.hours() && result.minutes() && result.seconds()) === 0,
             pattern = hasNotClockUnit ? 'DD.MM.YYYY dddd MMMM' : 'DD.MM.YYYY HH:mm:ss dddd MMMM';
 
         res = result.format(pattern);
@@ -137,9 +192,16 @@ const formatDuration = function (duration) {
 
 const parseDate = function (string) {
 
+    //easy, but bad
+    let isDate = chrono.parseDate(string) !== null;
+
+    if (isDate) {
+        string = HAS_TIME_REGEX.test(string) ? string : string + ' 00:00:00';
+    }
+
     //не понятно почему либа сама это не умеет
-    if (new RegExp('\\d{2}([.\\-])\\d{2}([.\\-])\\d{4}').test(string)) {
-        return chrono.en_GB.parse(string)[0]
+    if (RUS_DATE_REGEX.test(string)) {
+        return chrono.en_GB.parse(string)[0];
     }
 
     return chrono.parse(string)[0];
@@ -191,8 +253,6 @@ const toggleOpacity = function (element) {
 };
 
 const toggleGuide = function (e) {
-    //todo 118 years 11 months 25 days test + result
-    //phone units are bad css
 
     if (guideStage !== 0 && e.type === 'click') {
         e = {type: 'system'};
