@@ -4,6 +4,9 @@ const NUMBER_POSITION = 1;
 const DATE_INPUT_NUMBER = '1';
 const ADD_INPUT_NUMBER = '2';
 
+const HAS_TIME_REGEX = new RegExp('\\d{2}:\\d{2}:\\d{2}');
+const RUS_DATE_REGEX = new RegExp('\\d{2}([.\\-])\\d{2}([.\\-])\\d{4}?.*');
+
 let guideTimeunitId = null;
 let tooltipTimeunitId = null;
 
@@ -59,14 +62,27 @@ const getOperations = function (string) {
             hasSpace = true
         }
 
-        let part = parts[wi];
+        let part = parts[wi] || '';
 
-        parts[wi] = part == null ? s : part + s;
+        parts[wi] = part + s;
     }
 
     return parts;
 };
 
+
+const makeAdds = function (operations, units) {
+
+    let adds = [];
+    for (let i = operations.length - 1, j = 0; i >= 0; i--, j++) {
+        let operation = operations[i],
+            unit = units[i];
+
+        adds[j] = {num: operation.replaceAll(unit, '').trim(), unit: unit};
+    }
+
+    return adds;
+}
 
 const onKeyUp = function (e) {
 
@@ -100,20 +116,13 @@ const onKeyUp = function (e) {
             return;
         }
 
-        let adds = [];
-        for (let i = 0; i < operations.length; i++) {
-            let operation = operations[i],
-                unit = units[i];
-
-            adds[i] = {num: operation.replaceAll(unit, ''), unit: unit};
-        }
-
-        let moment = firstDate.start.moment(),
+        let adds = makeAdds(operations, units),
+            moment = firstDate.start.moment(),
             fixedDate = fixDate(firstDate, moment),
             //result
             result = adds.reduce((acc, s) => acc.add(s.num, s.unit), fixedDate),
             //if time without clockunit don't need to render it
-            hasNotClockUnit = (result.hours() && result.minutes() && result.minutes()) === 0,
+            hasNotClockUnit = (result.hours() && result.minutes() && result.seconds()) === 0,
             pattern = hasNotClockUnit ? 'DD.MM.YYYY dddd MMMM' : 'DD.MM.YYYY HH:mm:ss dddd MMMM';
 
         res = result.format(pattern);
@@ -183,9 +192,16 @@ const formatDuration = function (duration) {
 
 const parseDate = function (string) {
 
+    //easy, but bad
+    let isDate = chrono.parseDate(string) !== null;
+
+    if (isDate) {
+        string = HAS_TIME_REGEX.test(string) ? string : string + ' 00:00:00';
+    }
+
     //не понятно почему либа сама это не умеет
-    if (new RegExp('\\d{2}([.\\-])\\d{2}([.\\-])\\d{4}').test(string)) {
-        return chrono.en_GB.parse(string)[0]
+    if (RUS_DATE_REGEX.test(string)) {
+        return chrono.en_GB.parse(string)[0];
     }
 
     return chrono.parse(string)[0];
@@ -237,8 +253,6 @@ const toggleOpacity = function (element) {
 };
 
 const toggleGuide = function (e) {
-    //todo 118 years 11 months 25 days test + result
-    //phone units are bad css
 
     if (guideStage !== 0 && e.type === 'click') {
         e = {type: 'system'};

@@ -97,6 +97,9 @@
                 , case2 = '22.11.1996'
                 , case3 = '1996-03-01'
                 , case4 = '03/01/1996'
+                , case5 = '22.11.1996 12:00:00'
+                , case6 = '22.11.1996 12:00:11'
+                , case7 = '28y'
             ;
 
             //WHEN
@@ -104,14 +107,19 @@
                 , result2 = parseDate(case2)
                 , result3 = parseDate(case3)
                 , result4 = parseDate(case4)
+                , result5 = parseDate(case5)
+                , result6 = parseDate(case6)
+                , result7 = parseDate(case7)
             ;
 
-            debugger
             //THEN
-            assert.deepEqual(result1.start.knownValues, {day: 3, month: 1, year: 1996});
-            assert.deepEqual(result2.start.knownValues, {day: 22, month: 11, year: 1996});
-            assert.deepEqual(result3.start.knownValues, {day: 1, month: 3, year: 1996});
-            assert.deepEqual(result4.start.knownValues, {day: 1, month: 3, year: 1996});
+            assert.deepEqual(result1.start.knownValues, {day: 3, month: 1, year: 1996, minute: 0, hour: 0, second:0 });
+            assert.deepEqual(result2.start.knownValues, {day: 22, month: 11, year: 1996, minute: 0, hour: 0, second:0});
+            assert.deepEqual(result3.start.knownValues, {day: 1, month: 3, year: 1996, minute: 0, hour: 0, second:0 });
+            assert.deepEqual(result4.start.knownValues, {day: 1, month: 3, year: 1996, minute: 0, hour: 0, second:0 });
+            assert.deepEqual(result5.start.knownValues, {day: 22, month: 11, year: 1996, minute: 0, hour: 12, second: 0, meridiem: 1});
+            assert.deepEqual(result6.start.knownValues, {day: 22, month: 11, year: 1996, minute: 0, hour: 12, second: 11, meridiem: 1});
+            assert.deepEqual(result7, undefined);
         })
 
         QUnit.test('get operation test', assert => {
@@ -144,6 +152,31 @@
             assert.deepEqual(result6, ['28 years', '10 months']);
             assert.deepEqual(result7, ['28 years', '10 months', '3 days', '5 hours', '10 minutes', '4 seconds']);
         })
+
+        QUnit.test('make adds test', assert => {
+            //GIVEN
+            let case1 = '28 years 1 months 10 days 11 hours 51 minutes 5 seconds'
+                , case2 = '1 year'
+            ;
+
+            //todo bad
+            let operations_1 = getOperations(case1)
+                , units_1 = operations_1.map(getUnits).map(formatUnits).filter(Boolean)
+                , operations_2 = getOperations(case2)
+                , units_2 = operations_2.map(getUnits).map(formatUnits).filter(Boolean)
+
+            //WHEN
+
+            let result1 = makeAdds(operations_1, units_1)
+                , result2 = makeAdds(operations_2, units_2)
+            ;
+
+            //THEN
+            //sorting is important
+            assert.deepEqual(result1, [{num: '5', unit: 'seconds'}, {num: '51', unit: 'minutes'}, {num: '11', unit: 'hours'}, {num: '10', unit: 'days'},  {num: '1', unit: 'months'}, {num: '28', unit: 'years'}]);
+            assert.deepEqual(result2, [{num: '1', unit: 'year'}]);
+        })
+
 
 
     });
