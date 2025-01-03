@@ -52,8 +52,7 @@ const formatUnits = function (unit) {
     return unit;
 };
 
-//todo copy on result press
-//add week
+//todo add week
 const onKeyUp = function (e) {
 
     let inputs = Array.from(document.getElementsByClassName('input'));
@@ -361,5 +360,16 @@ window.onload = function () {
     next.addEventListener('click', () => toggleStage(true));
     prev.addEventListener('click', () => toggleStage(false));
 
+    document.getElementById('result').addEventListener('click', (e) => {
+
+        let text = e.target.innerHTML;
+
+        navigator.clipboard.writeText(text)
+            .then(() => {
+            })
+            .catch(err => {
+                console.error("Error copying text: ", err);
+            });
+    });
 }
 
