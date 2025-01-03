@@ -21,6 +21,16 @@ const toElement = function (elements) {
         }, {});
 };
 
+const getOperations = function (string) {
+    return string
+        .match(/\d+\s*[a-zA-Z]+/g)
+        .map(segment => {
+            const [, num, unit] = segment.match(/(\d+)\s*([a-zA-Z]+)/);
+            return { num: num, unit: formatUnits(unit) };
+        })
+        .reverse();
+};
+
 const formatUnits = function (unit) {
 
     if (unit === '') {
@@ -35,55 +45,15 @@ const formatUnits = function (unit) {
         return 'seconds';
     }
 
+    if ('year'.startsWith(unit)) {
+        return 'year';
+    }
+
     return unit;
 };
 
-const getUnits = function (string) {
-    return string.replace(/[^A-Za-z]/g, '')
-};
-
-const getOperations = function (string) {
-
-    let parts = []
-    let hasSpace = false;
-    for (let i = 0, wi = 0; i < string.length; i++) {
-
-        let s = string[i];
-
-        let isSpace = s === ' ';
-
-        if (isSpace && hasSpace === true) {
-            wi = wi + 1;
-            hasSpace = false;
-            continue;
-        }
-
-        if (isSpace && hasSpace === false) {
-            hasSpace = true
-        }
-
-        let part = parts[wi] || '';
-
-        parts[wi] = part + s;
-    }
-
-    return parts;
-};
-
-
-const makeAdds = function (operations, units) {
-
-    let adds = [];
-    for (let i = operations.length - 1, j = 0; i >= 0; i--, j++) {
-        let operation = operations[i],
-            unit = units[i];
-
-        adds[j] = {num: operation.replaceAll(unit, '').trim(), unit: unit};
-    }
-
-    return adds;
-}
-
+//todo copy on result press
+//add week
 const onKeyUp = function (e) {
 
     let inputs = Array.from(document.getElementsByClassName('input'));
@@ -107,16 +77,16 @@ const onKeyUp = function (e) {
 
     if (null == secondDate) {
 
+        value_2 = value_2.trim();
         //take unit from value
-        let operations = getOperations(value_2),
-            units = operations.map(getUnits).map(formatUnits).filter(Boolean)
+        let operations = getOperations(value_2)
 
-        if (value_2.length > 0 && units.length === 0) {
+        if (value_2.length > 0 && operations.filter(Boolean).length === 0) {
             toggleTooltip()
             return;
         }
 
-        let adds = makeAdds(operations, units),
+        let adds = operations,
             moment = firstDate.start.moment(),
             fixedDate = fixDate(firstDate, moment),
             //result
