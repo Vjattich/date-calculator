@@ -100,6 +100,8 @@
                 , case5 = '22.11.1996 12:00:00'
                 , case6 = '22.11.1996 12:00:11'
                 , case7 = '28y'
+                , case8 = 'friday'
+                , case9 = 'last friday'
             ;
 
             //WHEN
@@ -110,6 +112,8 @@
                 , result5 = parseDate(case5)
                 , result6 = parseDate(case6)
                 , result7 = parseDate(case7)
+                , result8 = parseDate(case8, moment('1996.11.21').toDate())
+                , result9 = parseDate(case9, moment('1996.11.25').toDate())
             ;
 
             //THEN
@@ -120,6 +124,8 @@
             assert.deepEqual(result5.start.knownValues, {day: 22, month: 11, year: 1996, minute: 0, hour: 12, second: 0, meridiem: 1});
             assert.deepEqual(result6.start.knownValues, {day: 22, month: 11, year: 1996, minute: 0, hour: 12, second: 11, meridiem: 1});
             assert.deepEqual(result7, undefined);
+            assert.deepEqual(result8.start.moment().toDate(), moment('1996.11.22').toDate());
+            assert.deepEqual(result9.start.moment().toDate(), moment('1996.11.22').toDate());
         })
 
         QUnit.test('get operation test', assert => {
@@ -131,6 +137,8 @@
                 , case5 = '28 minutes 10 seconds'
                 , case6 = '28 years 10 months'
                 , case7 = '28 years 1 months 10 days 11 hours 51 minutes 5 seconds'
+                , case8 = '1 months 28 years 10 days 51 minutes 11 hours 5 seconds'
+                , case9 = '2M 1y'
             ;
 
             //WHEN
@@ -141,6 +149,8 @@
                 , result5 = getOperations(case5)
                 , result6 = getOperations(case6)
                 , result7 = getOperations(case7)
+                , result8 = getOperations(case8)
+                , result9 = getOperations(case9)
             ;
 
             //THEN
@@ -151,6 +161,8 @@
             assert.deepEqual(result5, [{num: '10', unit: 'seconds'}, {num: '28', unit: 'minutes'}]);
             assert.deepEqual(result6, [{num: '10', unit: 'months'}, {num: '28', unit: 'years'}]);
             assert.deepEqual(result7, [{num: '5', unit: 'seconds'}, {num: '51', unit: 'minutes'}, {num: '11', unit: 'hours'}, {num: '10', unit: 'days'},  {num: '1', unit: 'months'}, {num: '28', unit: 'years'}]);
+            assert.deepEqual(result8, [{num: '5', unit: 'seconds'}, {num: '51', unit: 'minutes'}, {num: '11', unit: 'hours'}, {num: '10', unit: 'days'},  {num: '1', unit: 'months'}, {num: '28', unit: 'years'}]);
+            assert.deepEqual(result9, [{num: '2', unit: 'months'}, {num: '1', unit: 'year'}]);
         })
 
     });

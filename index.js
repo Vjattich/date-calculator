@@ -7,6 +7,8 @@ const ADD_INPUT_NUMBER = '2';
 const HAS_TIME_REGEX = new RegExp('\\d{2}:\\d{2}:\\d{2}');
 const RUS_DATE_REGEX = new RegExp('\\d{2}([.\\-])\\d{2}([.\\-])\\d{4}?.*');
 
+const UNIT_ORDER = ['years', 'months', 'days', 'hours', 'minutes', 'seconds'];
+
 let guideTimeunitId = null;
 let tooltipTimeunitId = null;
 
@@ -26,15 +28,21 @@ const getOperations = function (string) {
         .match(/\d+\s*[a-zA-Z]+/g)
         .map(segment => {
             const [, num, unit] = segment.match(/(\d+)\s*([a-zA-Z]+)/);
-            return { num: num, unit: formatUnits(unit) };
+            return {num: num, unit: formatUnits(unit)};
         })
-        .reverse();
+        .sort((a, b) => {
+            return UNIT_ORDER.indexOf(b.unit) - UNIT_ORDER.indexOf(a.unit);
+        });
 };
 
 const formatUnits = function (unit) {
 
     if (unit === '') {
         return null;
+    }
+
+    if ('Months'.startsWith(unit)) {
+        return 'months';
     }
 
     if ('minutes'.startsWith(unit)) {
@@ -52,7 +60,6 @@ const formatUnits = function (unit) {
     return unit;
 };
 
-//todo add week
 const onKeyUp = function (e) {
 
     let inputs = Array.from(document.getElementsByClassName('input'));
@@ -159,10 +166,11 @@ const formatDuration = function (duration) {
     return result;
 };
 
-const parseDate = function (string) {
+const parseDate = function (string, /*for tests*/ referenceDate) {
 
-    //easy, but bad
-    let isDate = chrono.parseDate(string) !== null;
+    //easy, but bad, it parse words-dates, ether way u need to known all words
+    let isDate = chrono.parseDate(string) !== null,
+        params = {forwardDate: true};
 
     if (isDate) {
         string = HAS_TIME_REGEX.test(string) ? string : string + ' 00:00:00';
@@ -170,10 +178,10 @@ const parseDate = function (string) {
 
     //не понятно почему либа сама это не умеет
     if (RUS_DATE_REGEX.test(string)) {
-        return chrono.en_GB.parse(string)[0];
+        return chrono.en_GB.parse(string, referenceDate, params)[0];
     }
 
-    return chrono.parse(string)[0];
+    return chrono.parse(string, referenceDate, params)[0];
 };
 
 
