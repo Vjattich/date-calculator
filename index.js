@@ -35,6 +35,10 @@ const getOperations = function (string) {
         });
 };
 
+const isNotVisible = function (e) {
+    return e.classList.contains('opacity-0');
+};
+
 const formatUnits = function (unit) {
 
     if (unit === '') {
@@ -110,10 +114,10 @@ const onKeyUp = function (e) {
             moment_2 = secondDate.start.moment(),
             fixedDate_2 = fixDate(secondDate, moment_2),
             //result
-            result = fixedDate_1.diff(fixedDate_2),
+            result = makeDiff(fixedDate_1, fixedDate_2),
             duration = moment.duration(result);
 
-        res = formatDuration(duration);
+        res = formatDuration(duration, fixedDate_1, fixedDate_2);
 
     }
 
@@ -136,11 +140,16 @@ const onKeyUp = function (e) {
 
 };
 
-const isNotVisible = function (e) {
-    return e.classList.contains('opacity-0');
+const makeDiff = function (a, b) {
+    return a.diff(b);
 };
 
-const formatDuration = function (duration) {
+const formatDuration = function (duration, date1, date2) {
+
+    //idk its bug or not; but fore me as a user i want to see date as expected. See 'format duration test'
+    if (date1 != null && date2 != null && (date1.year() !== date2.year() && (date1.date() === date2.date() && date1.month() === date2.month()))) {
+        return duration.humanize();
+    }
 
     let s = [
         {val: duration.years(), unit: 'years'},
@@ -149,7 +158,7 @@ const formatDuration = function (duration) {
         {val: duration.hours(), unit: 'hours'},
         {val: duration.minutes(), unit: 'minutes'},
         {val: duration.seconds(), unit: 'seconds'}
-    ]
+    ];
 
     let result = '';
 
@@ -163,7 +172,7 @@ const formatDuration = function (duration) {
         result += Math.abs(elem.val) + ' ' + elem.unit + ' ';
     }
 
-    return result;
+    return result.trim();
 };
 
 const parseDate = function (string, /*for tests*/ referenceDate) {
