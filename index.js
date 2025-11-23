@@ -30,7 +30,6 @@ const getOperations = function (string) {
     return string
         .match(/\d+\s*[a-zA-Z]+/g)
         .map(segment => {
-            //todo minus trim?
             let [, num, unit] = segment.match(/(\d+)\s*([a-zA-Z]+)/);
             return {num: hasMinus ? -num : +num, unit: formatUnits(unit)};
         })
