@@ -24,11 +24,15 @@ const toElement = function (elements) {
 };
 
 const getOperations = function (string) {
+
+    const hasMinus = string.indexOf('-') !== -1;
+
     return string
         .match(/\d+\s*[a-zA-Z]+/g)
         .map(segment => {
-            const [, num, unit] = segment.match(/(\d+)\s*([a-zA-Z]+)/);
-            return {num: num, unit: formatUnits(unit)};
+            //todo minus trim?
+            let [, num, unit] = segment.match(/(\d+)\s*([a-zA-Z]+)/);
+            return {num: hasMinus ? -num : +num, unit: formatUnits(unit)};
         })
         .sort((a, b) => {
             return UNIT_ORDER.indexOf(b.unit) - UNIT_ORDER.indexOf(a.unit);
@@ -63,16 +67,8 @@ const formatUnits = function (unit) {
 
     return unit;
 };
-
-const onKeyUp = function (e) {
-
-    let inputs = Array.from(document.getElementsByClassName('input'));
-
-    let isEnterPress = ENTER_KEY === e.keyCode;
-
-    if (!isEnterPress) {
-        return;
-    }
+//minus 40 week to calc
+const calcRes = function (inputs) {
 
     let elements = toElement(inputs),
         value_1 = elements[DATE_INPUT_NUMBER].value,
@@ -121,7 +117,20 @@ const onKeyUp = function (e) {
 
     }
 
-    document.getElementById('result').innerHTML = res;
+    return res;
+}
+
+const onKeyUp = function (e) {
+
+    let inputs = Array.from(document.getElementsByClassName('input'));
+
+    let isEnterPress = ENTER_KEY === e.keyCode;
+
+    if (!isEnterPress) {
+        return;
+    }
+
+    document.getElementById('result').innerHTML = calcRes(inputs);
 
     if (guideStage > 0) {
 
