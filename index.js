@@ -66,7 +66,7 @@ const formatUnits = function (unit) {
 
     return unit;
 };
-//minus 40 week to calc
+
 const calcRes = function (inputs) {
 
     let elements = toElement(inputs),
