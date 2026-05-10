@@ -5,7 +5,8 @@ const DATE_INPUT_NUMBER = '1';
 const ADD_INPUT_NUMBER = '2';
 
 const HAS_TIME_REGEX = new RegExp('\\d{2}:\\d{2}:\\d{2}');
-const RUS_DATE_REGEX = new RegExp('\\d{2}([.\\-])\\d{2}([.\\-])\\d{4}?.*');
+const RUS_DATE_REGEX = new RegExp('\\d{2}([.\\-])\\d{2}([.\\-])(?:\\d{2}|\\d{4}).*');
+const DURATION = new RegExp('^\\s*(?:\\d+\\s*(?:y|yr|yrs|year|years|mo|month|months|w|week|weeks|d|day|days|h|hr|hrs|hour|hours|m|min|mins|minute|minutes|s|sec|secs|second|seconds)\\s*)+$', 'i');
 
 const UNIT_ORDER = ['years', 'months', 'days', 'hours', 'minutes', 'seconds'];
 
@@ -97,8 +98,8 @@ const calcRes = function (inputs) {
             //result
             result = adds.reduce((acc, s) => acc.add(s.num, s.unit), fixedDate),
             //if time without clockunit don't need to render it
-            hasNotClockUnit = (result.hours() && result.minutes() && result.seconds()) === 0,
-            pattern = hasNotClockUnit ? 'DD.MM.YYYY dddd MMMM' : 'DD.MM.YYYY HH:mm:ss dddd MMMM';
+            hasClockUnit = 0 !== (result.hours() || result.minutes() || result.seconds()),
+            pattern = hasClockUnit ? 'DD.MM.YYYY HH:mm:ss dddd MMMM' : 'DD.MM.YYYY dddd MMMM';
 
         res = result.format(pattern);
 
@@ -185,6 +186,10 @@ const formatDuration = function (duration, date1, date2) {
 
 const parseDate = function (string, /*for tests*/ referenceDate) {
 
+    if (DURATION.test(string)) {
+        return null;
+    }
+
     //easy, but bad, it parse words-dates, ether way u need to known all words
     let isDate = chrono.parseDate(string) !== null,
         params = {forwardDate: true};
@@ -195,7 +200,7 @@ const parseDate = function (string, /*for tests*/ referenceDate) {
 
     //не понятно почему либа сама это не умеет
     if (RUS_DATE_REGEX.test(string)) {
-        return chrono.en_GB.parse(string, referenceDate, params)[0];
+        return chrono.en_GB.parse(string, referenceDate, {forwardDate: true})[0];
     }
 
     return chrono.parse(string, referenceDate, params)[0];
