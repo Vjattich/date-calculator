@@ -15,6 +15,7 @@
     QUnit.module('page', () => {
 
         QUnit.test('full logic test', assert => {
+
             //GIVEN
             let case1_1 = document.createElement('input');
             case1_1.classList.add('input', '1')
@@ -48,11 +49,30 @@
             case4_2.classList.add('input', '2')
             case4_2.value = "-4 weeks 4 days"
 
+            let case5_1 = document.createElement('input');
+            case5_1.classList.add('input', '1')
+            case5_1.value = "02.05.26 22.00"
+
+            let case5_2 = document.createElement('input');
+            case5_2.classList.add('input', '2')
+            case5_2.value = "18h30m"
+
+            let case6_1 = document.createElement('input');
+            case6_1.classList.add('input', '1')
+            case6_1.value = "02.05.26 22.00"
+
+            let case6_2 = document.createElement('input');
+            case6_2.classList.add('input', '2')
+            case6_2.value = "18 hours 45 minutes"
+
             //WHEN
-            let result1 = calcRes([case1_1, case1_2])
+            let
+                result1 = calcRes([case1_1, case1_2])
                 , result2 = calcRes([case2_1, case2_2])
                 , result3 = calcRes([case3_1, case3_2])
                 , result4 = calcRes([case4_1, case4_2])
+                , result5 = calcRes([case5_1, case5_2])
+                , result6 = calcRes([case6_1, case6_2])
                 ;
 
             //THEN
@@ -60,6 +80,7 @@
             assert.equal(result2, '16.02.1996 Friday February');
             assert.equal(result3, '29.08.1997 Friday August');
             assert.equal(result4, '21.10.1996 Monday October');
+            assert.equal(result6, '03.05.2026 16:45:00 Sunday May');
         })
 
 
@@ -67,12 +88,14 @@
             //GIVEN
             let dates1 = [parseDate("22.11.1996 18:18").start.moment(), parseDate("22.11.2025 18:18").start.moment()]
                 , dates2 = [parseDate("22.11.1996 18:18").start.moment(), parseDate("22.11.2024 18:18").start.moment()]
+                , dates3 = [parseDate("10.02.26").start.moment(), parseDate("10.01.26").start.moment()]
 
             let case1 = moment.duration("-PT245542H22M4.365S")
                 , case2 = moment.duration("PT245240H00M0.000S")
                 , case3 = moment.duration("-PT000002H22M1.111S")
                 , case4 = moment.duration(makeDiff(dates1[0], dates1[1]))
                 , case5 = moment.duration(makeDiff(dates2[0], dates2[1]))
+                , case6 = moment.duration(makeDiff(dates3[0], dates3[1]))
             ;
 
             //WHEN
@@ -81,6 +104,7 @@
                 , result3 = formatDuration(case3, null, null)
                 , result4 = formatDuration(case4, dates1[0], dates1[1])
                 , result5 = formatDuration(case5, dates2[0], dates2[1])
+                , result6 = formatDuration(case6, dates3[0], dates3[1])
             ;
 
             //THEN
@@ -89,6 +113,7 @@
             assert.equal(result3, "2 hours 22 minutes 1 seconds");
             assert.equal(result4, "29 years");
             assert.equal(result5, "28 years");
+            assert.equal(result6, "1 months");
         })
 
         QUnit.test('additional format for sec and min test', assert => {
@@ -161,6 +186,8 @@
                 , case7 = '28y'
                 , case8 = 'friday'
                 , case9 = 'last friday'
+                , case10 = '02.05.2026 22.00'
+                , case11 = '10.02.26'
             ;
 
             //WHEN
@@ -173,6 +200,8 @@
                 , result7 = parseDate(case7)
                 , result8 = parseDate(case8, moment('1996.11.21').toDate())
                 , result9 = parseDate(case9, moment('1996.11.25').toDate())
+                , result10 = parseDate(case10)
+                , result11 = parseDate(case11)
             ;
 
             //THEN
@@ -182,9 +211,11 @@
             assert.deepEqual(result4.start.knownValues, {day: 1, month: 3, year: 1996, minute: 0, hour: 0, second:0 });
             assert.deepEqual(result5.start.knownValues, {day: 22, month: 11, year: 1996, minute: 0, hour: 12, second: 0, meridiem: 1});
             assert.deepEqual(result6.start.knownValues, {day: 22, month: 11, year: 1996, minute: 0, hour: 12, second: 11, meridiem: 1});
-            assert.deepEqual(result7, undefined);
+            assert.deepEqual(result7, null);
             assert.deepEqual(result8.start.moment().toDate(), moment('1996.11.22').toDate());
             assert.deepEqual(result9.start.moment().toDate(), moment('1996.11.22').toDate());
+            assert.deepEqual(result10.start.knownValues, {day: 2, month: 5, year: 2026, minute: 0, hour: 22, /*second: 0,*/ meridiem: 1});
+            assert.deepEqual(result11.start.moment().toDate(), moment('2026.02.10').toDate());
         })
 
         QUnit.test('get operation test', assert => {
