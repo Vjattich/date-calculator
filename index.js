@@ -10,6 +10,8 @@ const DURATION = new RegExp('^\\s*(?:\\d+\\s*(?:y|yr|yrs|year|years|mo|month|mon
 
 const UNIT_ORDER = ['years', 'months', 'days', 'hours', 'minutes', 'seconds'];
 
+let LAST_DURATION = false;
+
 let guideTimeunitId = null;
 let tooltipTimeunitId = null;
 
@@ -70,6 +72,8 @@ const formatUnits = function (unit) {
 
 const calcRes = function (inputs) {
 
+    LAST_DURATION = false;
+
     let elements = toElement(inputs),
         value_1 = elements[DATE_INPUT_NUMBER].value,
         //parse to date, date input val
@@ -95,10 +99,9 @@ const calcRes = function (inputs) {
         let adds = operations,
             moment = firstDate.start.moment(),
             fixedDate = fixDate(firstDate, moment),
-            //result
             result = adds.reduce((acc, s) => acc.add(s.num, s.unit), fixedDate),
             //if time without clockunit don't need to render it
-            hasClockUnit = 0 !== (result.hours() || result.minutes() || result.seconds()),
+            hasClockUnit = 0 !== (result.hours() || result.minutes() /*|| result.seconds()*/),
             pattern = hasClockUnit ? 'DD.MM.YYYY HH:mm:ss dddd MMMM' : 'DD.MM.YYYY dddd MMMM';
 
         res = result.format(pattern);
@@ -115,6 +118,7 @@ const calcRes = function (inputs) {
 
         res = formatDuration(duration, fixedDate_1, fixedDate_2);
 
+        LAST_DURATION = duration;
     }
 
     return res;
@@ -153,11 +157,16 @@ const makeDiff = function (a, b) {
     return a.diff(b);
 };
 
-const formatDuration = function (duration, date1, date2) {
+const formatDuration = function (duration, date1, date2, showDays) {
 
     //idk its bug or not; but fore me as a user i want to see date as expected. See 'format duration test'
     if (date1 != null && date2 != null && (date1.year() !== date2.year() && (date1.date() === date2.date() && date1.month() === date2.month()))) {
         return duration.humanize();
+    }
+
+    //now its suits, but can be as different func
+    if (showDays) {
+        return Math.abs(duration.asDays()) + ' days';
     }
 
     let s = [
@@ -392,14 +401,20 @@ window.onload = function () {
 
     document.getElementById('result').addEventListener('click', (e) => {
 
-        let text = e.target.innerHTML;
+        if (LAST_DURATION) {
+            e.target.innerHTML = e.target.innerHTML + ' (' + formatDuration(LAST_DURATION, null, null, true) + ')';
+            LAST_DURATION = false;
+        }
 
-        navigator.clipboard.writeText(text)
-            .then(() => {
-            })
-            .catch(err => {
-                console.error("Error copying text: ", err);
-            });
+        //todo move to the special button
+        // let text = e.target.innerHTML;
+        //
+        // navigator.clipboard.writeText(text)
+        //     .then(() => {
+        //     })
+        //     .catch(err => {
+        //         console.error("Error copying text: ", err);
+        //     });
     });
 }
 
