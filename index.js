@@ -388,6 +388,8 @@ window.onload = function () {
     let inputs = Array.from(document.getElementsByClassName('input'));
 
     inputs.forEach(input => {
+        //cleans at refresh
+        input.value = null;
         input.addEventListener('keyup', onKeyUp)
     })
 
