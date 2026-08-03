@@ -41,7 +41,12 @@ const COPIED_MS = 2000;
 
 const TOOLTIP_TIMERS = {};
 
+const CALENDAR_URL = 'https://calendar.google.com/calendar/render';
+const CALENDAR_MINUTES = 60;
+
 let LAST_DURATION = false;
+let LAST_DATE = null;
+let LAST_TITLE = '';
 let LAST_ZONE = '';
 
 let SHARED_REFERENCE = null;
@@ -159,17 +164,28 @@ const zoneLabel = function (momentDate) {
     return label;
 };
 
+//if time without clockunit don't need to render it
+const hasClockUnit = function (momentDate) {
+    return 0 !== (momentDate.hours() || momentDate.minutes() /*|| momentDate.seconds()*/);
+};
+
 const formatMoment = function (momentDate) {
+    return momentDate.format(hasClockUnit(momentDate) ? CLOCK_PATTERN : DATE_PATTERN);
+};
 
-    //if time without clockunit don't need to render it
-    let hasClockUnit = 0 !== (momentDate.hours() || momentDate.minutes() /*|| momentDate.seconds()*/);
+const keepDate = function (momentDate, title) {
 
-    return momentDate.format(hasClockUnit ? CLOCK_PATTERN : DATE_PATTERN);
+    LAST_DATE = momentDate.clone();
+    LAST_TITLE = title;
+
+    return formatMoment(momentDate);
 };
 
 const calcRes = function (inputs, referenceDate) {
 
     LAST_DURATION = false;
+    LAST_DATE = null;
+    LAST_TITLE = '';
     LAST_ZONE = '';
 
     let elements = toElement(inputs),
@@ -193,7 +209,7 @@ const calcRes = function (inputs, referenceDate) {
     LAST_ZONE = zoneLabel(fixedDate_1);
 
     if (value_2.length === 0) {
-        return formatMoment(fixedDate_1);
+        return keepDate(fixedDate_1, value_1);
     }
 
     //maybe its date
@@ -209,7 +225,7 @@ const calcRes = function (inputs, referenceDate) {
             return '';
         }
 
-        return formatMoment(operations.reduce((acc, s) => acc.add(s.num, s.unit), fixedDate_1));
+        return keepDate(operations.reduce((acc, s) => acc.add(s.num, s.unit), fixedDate_1), value_1 + ' ' + value_2);
     }
 
     let fixedDate_2 = fixDate(secondDate, secondDate.start.moment()),
@@ -222,10 +238,6 @@ const calcRes = function (inputs, referenceDate) {
 
 const renderResult = function (text) {
 
-    if (!text) {
-        return;
-    }
-
     document.getElementById('result').innerHTML = text;
 
     let zone = document.getElementById('timezone');
@@ -233,6 +245,22 @@ const renderResult = function (text) {
     if (null != zone) {
         zone.innerHTML = LAST_ZONE;
     }
+
+    let calendar = document.getElementById('calendar-holder');
+
+    if (null != calendar) {
+        calendar.classList.toggle('hidden', null == LAST_DATE);
+    }
+};
+
+const clearResult = function () {
+
+    LAST_DURATION = false;
+    LAST_DATE = null;
+    LAST_TITLE = '';
+    LAST_ZONE = '';
+
+    renderResult('');
 };
 
 const runCalc = function () {
@@ -348,6 +376,44 @@ const fixDate = function (chronoObj, momentDate) {
     return momentDate;
 };
 
+
+const buildCalendarUrl = function () {
+
+    if (null == LAST_DATE) {
+        return null;
+    }
+
+    let start = LAST_DATE.clone(),
+        params = new URLSearchParams();
+
+    params.set('action', 'TEMPLATE');
+    params.set('text', LAST_TITLE);
+
+    if (hasClockUnit(start)) {
+        params.set('dates', start.format('YYYYMMDD[T]HHmmss') + '/' + start.clone().add(CALENDAR_MINUTES, 'minutes').format('YYYYMMDD[T]HHmmss'));
+    } else {
+        params.set('dates', start.format('YYYYMMDD') + '/' + start.clone().add(1, 'day').format('YYYYMMDD'));
+    }
+
+    let zone = localZone();
+
+    if (zone) {
+        params.set('ctz', zone);
+    }
+
+    return CALENDAR_URL + '?' + params.toString();
+};
+
+const onCalendar = function () {
+
+    let url = buildCalendarUrl();
+
+    if (null == url) {
+        return;
+    }
+
+    window.open(url, '_blank', 'noopener');
+};
 
 const baseUrl = function () {
     return location.href.split('#')[0].split('?')[0];
@@ -489,8 +555,7 @@ const toggleGuide = function (e) {
     input_1.readOnly = false;
     input_2.readOnly = false;
 
-    LAST_ZONE = '';
-    renderResult('');
+    clearResult();
 
     Array.from(tooltips.children).forEach(a => {
         if (!a.classList.contains('opacity-0')) {
@@ -527,8 +592,7 @@ const toggleStage = function (isNext) {
     if (guideStage === 1) {
         input_1.value = '22.11.1996';
         input_2.value = '33y';
-        LAST_ZONE = '';
-        renderResult('');
+        clearResult();
         input_1.readOnly = true;
         input_2.readOnly = true;
 
@@ -554,8 +618,7 @@ const toggleStage = function (isNext) {
 
         input_1.value = '22.11.1996';
         input_2.value = '18.11.2115';
-        LAST_ZONE = '';
-        renderResult('');
+        clearResult();
         input_1.readOnly = true;
         input_2.readOnly = true;
 
@@ -579,8 +642,7 @@ const toggleStage = function (isNext) {
 
         input_1.value = 'now';
         input_2.value = 'next friday';
-        LAST_ZONE = '';
-        renderResult('');
+        clearResult();
         input_1.readOnly = true;
         input_2.readOnly = true;
 
@@ -605,12 +667,14 @@ window.onload = function () {
     let questionMark = document.getElementsByClassName('question-mark')[0],
         next = document.getElementsByClassName('next')[0],
         prev = document.getElementsByClassName('prev')[0],
-        share = document.getElementById('share-btn');
+        share = document.getElementById('share-btn'),
+        calendar = document.getElementById('calendar-btn');
 
     questionMark.addEventListener('click', toggleGuide);
     next.addEventListener('click', () => toggleStage(true));
     prev.addEventListener('click', () => toggleStage(false));
     share.addEventListener('click', onShare);
+    calendar.addEventListener('click', onCalendar);
 
     document.getElementById('result').addEventListener('click', (e) => {
 
