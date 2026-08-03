@@ -85,6 +85,105 @@
             opacity: 0.7;
         }
 
+
+        #tutorial-layer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 50;
+        }
+
+        #tutorial-arrows {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow: visible;
+        }
+
+        .tutorial-arrow {
+            fill: none;
+            stroke: #000000;
+            stroke-width: 2.4;
+            stroke-linecap: round;
+        }
+
+        .tutorial-tip {
+            position: absolute;
+            max-width: 13em;
+            padding: 0.45em 0.7em;
+            border-radius: 10px;
+            border: 1px solid #aeaeae;
+            background-color: black;
+            color: orange;
+            font-family: 'Brush Script MT', cursive;
+            font-size: 0.85em;
+            line-height: 1.3;
+            text-align: center;
+            opacity: 0;
+            transform: translateY(0.4em) scale(0.96);
+            transition: opacity 0.35s ease, transform 0.35s ease;
+        }
+
+        .tutorial-tip.show {
+            opacity: 1;
+            transform: none;
+        }
+
+        .tutorial-target {
+            animation: tutorial-pulse 1.6s ease-in-out infinite;
+        }
+
+        @keyframes tutorial-pulse {
+            0%, 100% {
+                filter: none;
+            }
+            50% {
+                filter: drop-shadow(0 0 5px rgba(0, 0, 0, 0.55));
+            }
+        }
+
+        .input.tutorial-typing {
+            box-shadow: 0 0 0 0.12em rgba(0, 0, 0, 0.3);
+        }
+
+        .input.tutorial-enter {
+            animation: tutorial-press 0.4s ease-out;
+        }
+
+        @keyframes tutorial-press {
+            0% {
+                transform: scale(1);
+            }
+            40% {
+                transform: scale(0.97);
+                background: #ffe9c2;
+            }
+            100% {
+                transform: scale(1);
+            }
+        }
+
+        #tutorial-counter {
+            font-family: 'Brush Script MT', cursive;
+            font-size: 0.8em;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+
+            .tutorial-tip, .tutorial-arrow {
+                transition: none;
+            }
+
+            .tutorial-target, .input.tutorial-enter {
+                animation: none;
+            }
+        }
+
         .box40 {
             width: 40px;
             height: 40px;
@@ -285,6 +384,11 @@
                 width: auto;
             }
 
+            .tutorial-tip {
+                max-width: 70vw;
+                font-size: 12px;
+            }
+
             .share-holder, .calendar-holder {
                 position: static;
                 width: calc(90% + 0.4em);
@@ -366,8 +470,18 @@
     </style>
     <script src="index.js"></script>
     <script src="chrono.min.js"></script>
+    <script src="tutorial.js"></script>
 </head>
 <body class="background-orange" style="zoom: 125%">
+<div id="tutorial-layer">
+    <svg id="tutorial-arrows" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+            <marker id="tutorial-head" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#000000"/>
+            </marker>
+        </defs>
+    </svg>
+</div>
 <div class="center margin-top-15p font-size-20">
 
     <div><br></div>
@@ -376,16 +490,6 @@
     <div id="main" style="flex: 1 1 auto">
         <div id="tooltips">
             <span id="unit-tooltip" class="tooltip-right-up opacity-0">You need to set and unit</span>
-            <!--phase 1-->
-            <span id="put-date-tooltip" class="tooltip-left-up opacity-0">Put any date here in format you know (existed one)</span>
-            <span id="put-unit-tooltip" class="tooltip-right-up opacity-0">Put unit here (10 year, 2M, 3 sec...)</span>
-            <span id="press-enter-tooltip" class="tooltip-right-down opacity-0">Put cursor at any input and press enter</span>
-            <span id="unit-result-tooltip" class="tooltip-result opacity-0">Result is next date</span>
-            <!--phase 2-->
-            <span id="put-second-date-tooltip" class="tooltip-right-up opacity-0">You can put second date here to calculate a duration</span>
-            <span id="date-result-tooltip" class="tooltip-result opacity-0">Result is duration between two dates</span>
-            <!--phase 3-->
-            <span id="put-words-tooltip" class="tooltip-right-up opacity-0">You can use usual words</span>
         </div>
         <div class="input-row">
             <input class="input 1"><span style="margin: 0 0.15em;"></span><input class="input 2">
@@ -406,7 +510,7 @@
     </div>
 
     <div style="flex: 1 1 auto; margin-top: 5em;">
-        <span class="prev hidden"><svg fill="#000000" version="1.1" id="Capa_1" xmlns="http://www.w3.org/2000/svg" height="30px" width="30px" style="transform: scale(-1,1); margin-bottom: 0.25em" viewBox="0 0 40 40" xml:space="preserve"><g><path  d="M20,0C8.973,0,0,8.973,0,20c0,11.027,8.973,20,20,20c11.027,0,20-8.973,20-20C40,8.973,31.027,0,20,0z M26.1,22.023   l-7.354,8.69c-0.621,0.735-1.51,1.115-2.402,1.117c-0.722,0-1.447-0.244-2.041-0.747c-1.33-1.125-1.496-3.114-0.37-4.443   l5.626-6.647l-5.648-6.63c-1.131-1.324-0.971-3.314,0.354-4.444c1.327-1.129,3.316-0.97,4.445,0.354l7.389,8.668   C27.096,19.117,27.098,20.846,26.1,22.023z"/></g></svg></span><span style="margin-left: 2.5em; margin-right: 2.5em"></span><span class="next hidden"><svg fill="#000000" version="1.1" id="Capa_1" xmlns="http://www.w3.org/2000/svg" height="30px" width="30px" style="margin-bottom: 0.25em" viewBox="0 0 40 40" xml:space="preserve"><g><path d="M20,0C8.973,0,0,8.973,0,20c0,11.027,8.973,20,20,20c11.027,0,20-8.973,20-20C40,8.973,31.027,0,20,0z M26.1,22.023   l-7.354,8.69c-0.621,0.735-1.51,1.115-2.402,1.117c-0.722,0-1.447-0.244-2.041-0.747c-1.33-1.125-1.496-3.114-0.37-4.443   l5.626-6.647l-5.648-6.63c-1.131-1.324-0.971-3.314,0.354-4.444c1.327-1.129,3.316-0.97,4.445,0.354l7.389,8.668   C27.096,19.117,27.098,20.846,26.1,22.023z"/></g></svg></span>
+        <span class="prev hidden"><svg fill="#000000" version="1.1" id="Capa_1" xmlns="http://www.w3.org/2000/svg" height="30px" width="30px" style="transform: scale(-1,1); margin-bottom: 0.25em" viewBox="0 0 40 40" xml:space="preserve"><g><path  d="M20,0C8.973,0,0,8.973,0,20c0,11.027,8.973,20,20,20c11.027,0,20-8.973,20-20C40,8.973,31.027,0,20,0z M26.1,22.023   l-7.354,8.69c-0.621,0.735-1.51,1.115-2.402,1.117c-0.722,0-1.447-0.244-2.041-0.747c-1.33-1.125-1.496-3.114-0.37-4.443   l5.626-6.647l-5.648-6.63c-1.131-1.324-0.971-3.314,0.354-4.444c1.327-1.129,3.316-0.97,4.445,0.354l7.389,8.668   C27.096,19.117,27.098,20.846,26.1,22.023z"/></g></svg></span><span id="tutorial-counter" style="margin-left: 2.5em; margin-right: 2.5em"></span><span class="next hidden"><svg fill="#000000" version="1.1" id="Capa_1" xmlns="http://www.w3.org/2000/svg" height="30px" width="30px" style="margin-bottom: 0.25em" viewBox="0 0 40 40" xml:space="preserve"><g><path d="M20,0C8.973,0,0,8.973,0,20c0,11.027,8.973,20,20,20c11.027,0,20-8.973,20-20C40,8.973,31.027,0,20,0z M26.1,22.023   l-7.354,8.69c-0.621,0.735-1.51,1.115-2.402,1.117c-0.722,0-1.447-0.244-2.041-0.747c-1.33-1.125-1.496-3.114-0.37-4.443   l5.626-6.647l-5.648-6.63c-1.131-1.324-0.971-3.314,0.354-4.444c1.327-1.129,3.316-0.97,4.445,0.354l7.389,8.668   C27.096,19.117,27.098,20.846,26.1,22.023z"/></g></svg></span>
     </div>
 
 </div>

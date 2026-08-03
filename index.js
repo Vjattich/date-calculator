@@ -54,8 +54,6 @@ let SHARED_ZONE = null;
 
 let copiedTimerId = null;
 
-let guideStage = 0;
-
 const toElement = function (elements) {
     return elements
         .map(e => ({value: e.value, pos: e.classList[NUMBER_POSITION], self: e}))
@@ -279,22 +277,6 @@ const onKeyUp = function (e) {
     }
 
     runCalc();
-
-    if (guideStage > 0) {
-
-        let unitResultTooltip = document.getElementById('unit-result-tooltip'),
-            dateResultTooltip = document.getElementById('date-result-tooltip');
-
-        if (isNotVisible(unitResultTooltip) && guideStage === 1) {
-            toggleOpacity(unitResultTooltip);
-        }
-
-        if (isNotVisible(dateResultTooltip) && guideStage === 2) {
-            toggleOpacity(dateResultTooltip);
-        }
-
-    }
-
 };
 
 const makeDiff = function (a, b) {
@@ -455,7 +437,8 @@ const copyText = function (text) {
         document.body.appendChild(area);
         area.select();
 
-        let copied = document.execCommand('copy');
+        //fix deprecated
+        const copied = document.execCommand('copy');
 
         document.body.removeChild(area);
 
@@ -531,128 +514,6 @@ const applySharedState = function () {
 };
 
 
-const toggleGuide = function (e) {
-
-    if (guideStage !== 0 && e.type === 'click') {
-        e = {type: 'system'};
-    }
-
-    guideStage = 0;
-
-    let next = document.getElementsByClassName('next')[0],
-        prev = document.getElementsByClassName('prev')[0]
-
-    next.classList.toggle('hidden');
-    prev.classList.toggle('hidden');
-
-    let inputs = document.getElementsByClassName('input'),
-        input_1 = inputs[0],
-        input_2 = inputs[1],
-        tooltips = document.getElementById('tooltips');
-
-    input_1.value = null;
-    input_2.value = null;
-    input_1.readOnly = false;
-    input_2.readOnly = false;
-
-    clearResult();
-
-    Array.from(tooltips.children).forEach(a => {
-        if (!a.classList.contains('opacity-0')) {
-            toggleOpacity(a)
-        }
-    });
-
-    if (e.type === 'click') {
-        toggleStage(true);
-    }
-};
-
-const toggleStage = function (isNext) {
-
-    if (isNext) {
-        guideStage = guideStage + 1;
-    } else {
-        guideStage = guideStage - 1;
-    }
-
-    let inputs = document.getElementsByClassName('input'),
-        input_1 = inputs[0],
-        input_2 = inputs[1];
-
-    if (guideStage > 3) {
-        toggleGuide({type: 'system'});
-    }
-
-    let pressEnterTooltip = document.getElementById('press-enter-tooltip'),
-        putUnitTooltip = document.getElementById('put-unit-tooltip'),
-        putDateTooltip = document.getElementById('put-date-tooltip'),
-        unitResultTooltip = document.getElementById('unit-result-tooltip');
-
-    if (guideStage === 1) {
-        input_1.value = '22.11.1996';
-        input_2.value = '33y';
-        clearResult();
-        input_1.readOnly = true;
-        input_2.readOnly = true;
-
-        //show explanations
-        toggleOpacity(pressEnterTooltip)
-        toggleOpacity(putUnitTooltip)
-        toggleOpacity(putDateTooltip)
-        onKeyUp({keyCode: ENTER_KEY})
-    }
-
-    let putSecondDateTooltip = document.getElementById('put-second-date-tooltip'),
-        dateResultTooltip = document.getElementById('date-result-tooltip');
-
-    if (guideStage === 2) {
-
-        //hide prev explanations
-        toggleOpacity(pressEnterTooltip)
-        toggleOpacity(putUnitTooltip)
-        toggleOpacity(putDateTooltip)
-        if (false === isNotVisible(unitResultTooltip)) {
-            toggleOpacity(unitResultTooltip);
-        }
-
-        input_1.value = '22.11.1996';
-        input_2.value = '18.11.2115';
-        clearResult();
-        input_1.readOnly = true;
-        input_2.readOnly = true;
-
-        toggleOpacity(pressEnterTooltip)
-        toggleOpacity(putDateTooltip)
-        toggleOpacity(putSecondDateTooltip)
-        onKeyUp({keyCode: ENTER_KEY})
-    }
-
-    let putWordsTooltip = document.getElementById('put-words-tooltip');
-
-    if (guideStage === 3) {
-
-        //hide prev explanations
-        toggleOpacity(pressEnterTooltip)
-        toggleOpacity(putDateTooltip)
-        toggleOpacity(putSecondDateTooltip)
-        if (false === isNotVisible(dateResultTooltip)) {
-            toggleOpacity(dateResultTooltip);
-        }
-
-        input_1.value = 'now';
-        input_2.value = 'next friday';
-        clearResult();
-        input_1.readOnly = true;
-        input_2.readOnly = true;
-
-        toggleOpacity(pressEnterTooltip)
-        toggleOpacity(putWordsTooltip)
-        onKeyUp({keyCode: ENTER_KEY})
-    }
-
-};
-
 //check requests to other sites
 window.onload = function () {
 
@@ -664,17 +525,8 @@ window.onload = function () {
         input.addEventListener('keyup', onKeyUp)
     })
 
-    let questionMark = document.getElementsByClassName('question-mark')[0],
-        next = document.getElementsByClassName('next')[0],
-        prev = document.getElementsByClassName('prev')[0],
-        share = document.getElementById('share-btn'),
-        calendar = document.getElementById('calendar-btn');
-
-    questionMark.addEventListener('click', toggleGuide);
-    next.addEventListener('click', () => toggleStage(true));
-    prev.addEventListener('click', () => toggleStage(false));
-    share.addEventListener('click', onShare);
-    calendar.addEventListener('click', onCalendar);
+    document.getElementById('share-btn').addEventListener('click', onShare);
+    document.getElementById('calendar-btn').addEventListener('click', onCalendar);
 
     document.getElementById('result').addEventListener('click', (e) => {
 
