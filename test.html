@@ -182,7 +182,7 @@
             assert.deepEqual(result4.start.knownValues, {day: 1, month: 3, year: 1996, minute: 0, hour: 0, second:0 });
             assert.deepEqual(result5.start.knownValues, {day: 22, month: 11, year: 1996, minute: 0, hour: 12, second: 0, meridiem: 1});
             assert.deepEqual(result6.start.knownValues, {day: 22, month: 11, year: 1996, minute: 0, hour: 12, second: 11, meridiem: 1});
-            assert.deepEqual(result7, undefined);
+            assert.deepEqual(result7, null);
             assert.deepEqual(result8.start.moment().toDate(), moment('1996.11.22').toDate());
             assert.deepEqual(result9.start.moment().toDate(), moment('1996.11.22').toDate());
         })
