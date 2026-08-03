@@ -6,14 +6,35 @@ const ADD_INPUT_NUMBER = '2';
 
 const HAS_TIME_REGEX = new RegExp('\\d{2}:\\d{2}:\\d{2}');
 const RUS_DATE_REGEX = new RegExp('\\d{2}([.\\-])\\d{2}([.\\-])(?:\\d{2}|\\d{4}).*');
-const DURATION = new RegExp('^\\s*(?:\\d+\\s*(?:y|yr|yrs|year|years|mo|month|months|w|week|weeks|d|day|days|h|hr|hrs|hour|hours|m|min|mins|minute|minutes|s|sec|secs|second|seconds)\\s*)+$', 'i');
 
-const UNIT_ORDER = ['years', 'months', 'days', 'hours', 'minutes', 'seconds'];
+const UNITS = {
+    years: 'years', year: 'year', yrs: 'years', yr: 'year', y: 'year',
+    months: 'months', month: 'month', mos: 'months', mo: 'months', M: 'months',
+    weeks: 'weeks', week: 'week', wks: 'weeks', wk: 'weeks', w: 'weeks',
+    days: 'days', day: 'day', d: 'days',
+    hours: 'hours', hour: 'hour', hrs: 'hours', hr: 'hours', h: 'hours',
+    minutes: 'minutes', minute: 'minutes', mins: 'minutes', min: 'minutes', m: 'minutes',
+    seconds: 'seconds', second: 'seconds', secs: 'seconds', sec: 'seconds', s: 'seconds'
+};
+
+const UNIT_ORDER = ['years', 'months', 'weeks', 'days', 'hours', 'minutes', 'seconds'];
+
+const UNIT_ALTERNATION = Object.keys(UNITS)
+    .sort((a, b) => b.length - a.length)
+    .join('|');
+
+const DURATION = new RegExp('^\\s*(?:[-+]?\\s*\\d+\\s*(?:' + UNIT_ALTERNATION + ')\\s*)+$', 'i');
+
+const SEGMENT_GLOBAL = new RegExp('\\d+\\s*[a-zA-Z]+', 'g');
+const SEGMENT_PARTS = new RegExp('(\\d+)\\s*([a-zA-Z]+)');
+
+const CLOCK_PATTERN = 'DD.MM.YYYY HH:mm:ss dddd MMMM';
+const DATE_PATTERN = 'DD.MM.YYYY dddd MMMM';
+
+const TOOLTIP_MS = 2000;
+const TOOLTIP_TIMERS = {};
 
 let LAST_DURATION = false;
-
-let guideTimeunitId = null;
-let tooltipTimeunitId = null;
 
 let guideStage = 0;
 
@@ -26,23 +47,8 @@ const toElement = function (elements) {
         }, {});
 };
 
-const getOperations = function (string) {
-
-    const hasMinus = string.indexOf('-') !== -1;
-
-    return string
-        .match(/\d+\s*[a-zA-Z]+/g)
-        .map(segment => {
-            let [, num, unit] = segment.match(/(\d+)\s*([a-zA-Z]+)/);
-            return {num: hasMinus ? -num : +num, unit: formatUnits(unit)};
-        })
-        .sort((a, b) => {
-            return UNIT_ORDER.indexOf(b.unit) - UNIT_ORDER.indexOf(a.unit);
-        });
-};
-
-const isNotVisible = function (e) {
-    return e.classList.contains('opacity-0');
+const isKnownUnit = function (unit) {
+    return UNITS.hasOwnProperty(unit) || UNITS.hasOwnProperty(unit.toLowerCase());
 };
 
 const formatUnits = function (unit) {
@@ -51,23 +57,80 @@ const formatUnits = function (unit) {
         return null;
     }
 
-    if ('Months'.startsWith(unit)) {
-        return 'months';
+    if (UNITS.hasOwnProperty(unit)) {
+        return UNITS[unit];
     }
 
-    if ('minutes'.startsWith(unit)) {
-        return 'minutes';
+    let lower = unit.toLowerCase();
+
+    return UNITS.hasOwnProperty(lower) ? UNITS[lower] : unit;
+};
+
+const getOperations = function (string) {
+
+    let segments = string.match(SEGMENT_GLOBAL);
+
+    if (null == segments) {
+        return null;
     }
 
-    if ('seconds'.startsWith(unit)) {
-        return 'seconds';
+    const hasMinus = string.indexOf('-') !== -1;
+
+    let operations = [];
+
+    for (let i = 0; i < segments.length; i++) {
+
+        let [, num, unit] = segments[i].match(SEGMENT_PARTS);
+
+        if (!isKnownUnit(unit)) {
+            return null;
+        }
+
+        operations.push({num: hasMinus ? -num : +num, unit: formatUnits(unit)});
     }
 
-    if ('year'.startsWith(unit)) {
-        return 'year';
+    return operations.sort((a, b) => {
+        return UNIT_ORDER.indexOf(b.unit) - UNIT_ORDER.indexOf(a.unit);
+    });
+};
+
+const isNotVisible = function (e) {
+    return e.classList.contains('opacity-0');
+};
+
+const toggleOpacity = function (element) {
+    element.classList.toggle('opacity-0')
+    element.classList.toggle('opacity-1')
+};
+
+const flashTooltip = function (id) {
+
+    let elem = document.getElementById(id);
+
+    if (null == elem) {
+        return;
     }
 
-    return unit;
+    if (isNotVisible(elem)) {
+        toggleOpacity(elem);
+    }
+
+    window.clearTimeout(TOOLTIP_TIMERS[id]);
+
+    TOOLTIP_TIMERS[id] = window.setTimeout(() => {
+        if (!isNotVisible(elem)) {
+            toggleOpacity(elem);
+        }
+        delete TOOLTIP_TIMERS[id];
+    }, TOOLTIP_MS);
+};
+
+const formatMoment = function (momentDate) {
+
+    //if time without clockunit don't need to render it
+    let hasClockUnit = 0 !== (momentDate.hours() || momentDate.minutes() /*|| momentDate.seconds()*/);
+
+    return momentDate.format(hasClockUnit ? CLOCK_PATTERN : DATE_PATTERN);
 };
 
 const calcRes = function (inputs) {
@@ -75,54 +138,50 @@ const calcRes = function (inputs) {
     LAST_DURATION = false;
 
     let elements = toElement(inputs),
-        value_1 = elements[DATE_INPUT_NUMBER].value,
-        //parse to date, date input val
-        firstDate = parseDate(value_1),
-        //get val of add\subtract unit
-        value_2 = elements[ADD_INPUT_NUMBER].value,
-        //maybe its date
-        secondDate = parseDate(value_2);
+        value_1 = elements[DATE_INPUT_NUMBER].value.trim(),
+        value_2 = elements[ADD_INPUT_NUMBER].value.trim();
 
-    let res;
+    if (value_1.length === 0) {
+        return '';
+    }
+
+    //parse to date, date input val
+    let firstDate = parseDate(value_1);
+
+    if (null == firstDate) {
+        flashTooltip('date-tooltip');
+        return '';
+    }
+
+    let fixedDate_1 = fixDate(firstDate, firstDate.start.moment());
+
+    if (value_2.length === 0) {
+        return formatMoment(fixedDate_1);
+    }
+
+    //maybe its date
+    let secondDate = parseDate(value_2);
 
     if (null == secondDate) {
 
-        value_2 = value_2.trim();
         //take unit from value
-        let operations = getOperations(value_2)
+        let operations = getOperations(value_2);
 
-        if (value_2.length > 0 && operations.filter(Boolean).length === 0) {
-            toggleTooltip()
-            return;
+        if (null == operations) {
+            flashTooltip('unit-tooltip');
+            return '';
         }
 
-        let adds = operations,
-            moment = firstDate.start.moment(),
-            fixedDate = fixDate(firstDate, moment),
-            result = adds.reduce((acc, s) => acc.add(s.num, s.unit), fixedDate),
-            //if time without clockunit don't need to render it
-            hasClockUnit = 0 !== (result.hours() || result.minutes() /*|| result.seconds()*/),
-            pattern = hasClockUnit ? 'DD.MM.YYYY HH:mm:ss dddd MMMM' : 'DD.MM.YYYY dddd MMMM';
-
-        res = result.format(pattern);
-
-    } else {
-
-        let moment_1 = firstDate.start.moment(),
-            fixedDate_1 = fixDate(firstDate, moment_1),
-            moment_2 = secondDate.start.moment(),
-            fixedDate_2 = fixDate(secondDate, moment_2),
-            //result
-            result = makeDiff(fixedDate_1, fixedDate_2),
-            duration = moment.duration(result);
-
-        res = formatDuration(duration, fixedDate_1, fixedDate_2);
-
-        LAST_DURATION = duration;
+        return formatMoment(operations.reduce((acc, s) => acc.add(s.num, s.unit), fixedDate_1));
     }
 
-    return res;
-}
+    let fixedDate_2 = fixDate(secondDate, secondDate.start.moment()),
+        duration = moment.duration(makeDiff(fixedDate_1, fixedDate_2));
+
+    LAST_DURATION = duration;
+
+    return formatDuration(duration, fixedDate_1, fixedDate_2);
+};
 
 const onKeyUp = function (e) {
 
@@ -157,6 +216,13 @@ const makeDiff = function (a, b) {
     return a.diff(b);
 };
 
+const formatTotalDays = function (duration) {
+
+    let days = Math.abs(duration.asDays());
+
+    return (days === Math.trunc(days) ? days : days.toFixed(2)) + ' days';
+};
+
 const formatDuration = function (duration, date1, date2, showDays) {
 
     //idk its bug or not; but fore me as a user i want to see date as expected. See 'format duration test'
@@ -166,7 +232,7 @@ const formatDuration = function (duration, date1, date2, showDays) {
 
     //now its suits, but can be as different func
     if (showDays) {
-        return Math.abs(duration.asDays()) + ' days';
+        return formatTotalDays(duration);
     }
 
     let s = [
@@ -225,40 +291,6 @@ const fixDate = function (chronoObj, momentDate) {
     return momentDate;
 };
 
-
-const debounceTooltip = (callback, wait) => {
-    return (...args) => {
-        window.clearTimeout(tooltipTimeunitId);
-        tooltipTimeunitId = window.setTimeout(() => {
-            callback(...args);
-            tooltipTimeunitId = null;
-        }, wait);
-    };
-}
-
-const toggleTooltip = function () {
-    let elem = document.getElementById('unit-tooltip');
-    let callback = toggleOpacity.bind(null, elem);
-    if (tooltipTimeunitId === null) {
-        callback()
-    }
-    debounceTooltip(callback, 2000)();
-};
-
-const debounceGuide = (callback, wait) => {
-    return (...args) => {
-        window.clearTimeout(guideTimeunitId);
-        guideTimeunitId = window.setTimeout(() => {
-            callback(...args);
-            guideTimeunitId = null;
-        }, wait);
-    };
-}
-
-const toggleOpacity = function (element) {
-    element.classList.toggle('opacity-0')
-    element.classList.toggle('opacity-1')
-};
 
 const toggleGuide = function (e) {
 
@@ -404,19 +436,9 @@ window.onload = function () {
     document.getElementById('result').addEventListener('click', (e) => {
 
         if (LAST_DURATION) {
-            e.target.innerHTML = e.target.innerHTML + ' (' + formatDuration(LAST_DURATION, null, null, true) + ')';
+            e.target.innerHTML = e.target.innerHTML + ' (' + formatTotalDays(LAST_DURATION) + ')';
             LAST_DURATION = false;
         }
 
-        //todo move to the special button
-        // let text = e.target.innerHTML;
-        //
-        // navigator.clipboard.writeText(text)
-        //     .then(() => {
-        //     })
-        //     .catch(err => {
-        //         console.error("Error copying text: ", err);
-        //     });
     });
 }
-
