@@ -5,12 +5,49 @@ const DATE_INPUT_NUMBER = '1';
 const ADD_INPUT_NUMBER = '2';
 
 const HAS_TIME_REGEX = new RegExp('\\d{2}:\\d{2}:\\d{2}');
-const RUS_DATE_REGEX = new RegExp('\\d{2}([.\\-])\\d{2}([.\\-])\\d{4}?.*');
+const RUS_DATE_REGEX = new RegExp('\\d{2}([.\\-])\\d{2}([.\\-])(?:\\d{2}|\\d{4}).*');
 
-const UNIT_ORDER = ['years', 'months', 'days', 'hours', 'minutes', 'seconds'];
+const UNITS = {
+    years: 'years', year: 'year', yrs: 'years', yr: 'year', y: 'year',
+    months: 'months', month: 'month', mos: 'months', mo: 'months', M: 'months',
+    weeks: 'weeks', week: 'week', wks: 'weeks', wk: 'weeks', w: 'weeks',
+    days: 'days', day: 'day', d: 'days',
+    hours: 'hours', hour: 'hour', hrs: 'hours', hr: 'hours', h: 'hours',
+    minutes: 'minutes', minute: 'minutes', mins: 'minutes', min: 'minutes', m: 'minutes',
+    seconds: 'seconds', second: 'seconds', secs: 'seconds', sec: 'seconds', s: 'seconds'
+};
 
-let guideTimeunitId = null;
-let tooltipTimeunitId = null;
+const UNIT_ORDER = ['years', 'months', 'weeks', 'days', 'hours', 'minutes', 'seconds'];
+
+const UNIT_ALTERNATION = Object.keys(UNITS)
+    .sort((a, b) => b.length - a.length)
+    .join('|');
+
+const DURATION = new RegExp('^\\s*(?:[-+]?\\s*\\d+\\s*(?:' + UNIT_ALTERNATION + ')\\s*)+$', 'i');
+
+const SEGMENT_GLOBAL = new RegExp('\\d+\\s*[a-zA-Z]+', 'g');
+const SEGMENT_PARTS = new RegExp('(\\d+)\\s*([a-zA-Z]+)');
+
+const CLOCK_PATTERN = 'DD.MM.YYYY HH:mm:ss dddd MMMM';
+const DATE_PATTERN = 'DD.MM.YYYY dddd MMMM';
+
+const SHARE_DATE = 'd';
+const SHARE_UNIT = 'u';
+const SHARE_REF = 't';
+const SHARE_ZONE = 'z';
+
+const TOOLTIP_MS = 2000;
+const COPIED_MS = 2000;
+
+const TOOLTIP_TIMERS = {};
+
+let LAST_DURATION = false;
+let LAST_ZONE = '';
+
+let SHARED_REFERENCE = null;
+let SHARED_ZONE = null;
+
+let copiedTimerId = null;
 
 let guideStage = 0;
 
@@ -23,23 +60,8 @@ const toElement = function (elements) {
         }, {});
 };
 
-const getOperations = function (string) {
-
-    const hasMinus = string.indexOf('-') !== -1;
-
-    return string
-        .match(/\d+\s*[a-zA-Z]+/g)
-        .map(segment => {
-            let [, num, unit] = segment.match(/(\d+)\s*([a-zA-Z]+)/);
-            return {num: hasMinus ? -num : +num, unit: formatUnits(unit)};
-        })
-        .sort((a, b) => {
-            return UNIT_ORDER.indexOf(b.unit) - UNIT_ORDER.indexOf(a.unit);
-        });
-};
-
-const isNotVisible = function (e) {
-    return e.classList.contains('opacity-0');
+const isKnownUnit = function (unit) {
+    return UNITS.hasOwnProperty(unit) || UNITS.hasOwnProperty(unit.toLowerCase());
 };
 
 const formatUnits = function (unit) {
@@ -48,80 +70,175 @@ const formatUnits = function (unit) {
         return null;
     }
 
-    if ('Months'.startsWith(unit)) {
-        return 'months';
+    if (UNITS.hasOwnProperty(unit)) {
+        return UNITS[unit];
     }
 
-    if ('minutes'.startsWith(unit)) {
-        return 'minutes';
-    }
+    let lower = unit.toLowerCase();
 
-    if ('seconds'.startsWith(unit)) {
-        return 'seconds';
-    }
-
-    if ('year'.startsWith(unit)) {
-        return 'year';
-    }
-
-    return unit;
+    return UNITS.hasOwnProperty(lower) ? UNITS[lower] : unit;
 };
 
-const calcRes = function (inputs) {
+const getOperations = function (string) {
+
+    let segments = string.match(SEGMENT_GLOBAL);
+
+    if (null == segments) {
+        return null;
+    }
+
+    const hasMinus = string.indexOf('-') !== -1;
+
+    let operations = [];
+
+    for (let i = 0; i < segments.length; i++) {
+
+        let [, num, unit] = segments[i].match(SEGMENT_PARTS);
+
+        if (!isKnownUnit(unit)) {
+            return null;
+        }
+
+        operations.push({num: hasMinus ? -num : +num, unit: formatUnits(unit)});
+    }
+
+    return operations.sort((a, b) => {
+        return UNIT_ORDER.indexOf(b.unit) - UNIT_ORDER.indexOf(a.unit);
+    });
+};
+
+const isNotVisible = function (e) {
+    return e.classList.contains('opacity-0');
+};
+
+const toggleOpacity = function (element) {
+    element.classList.toggle('opacity-0')
+    element.classList.toggle('opacity-1')
+};
+
+const flashTooltip = function (id) {
+
+    let elem = document.getElementById(id);
+
+    if (null == elem) {
+        return;
+    }
+
+    if (isNotVisible(elem)) {
+        toggleOpacity(elem);
+    }
+
+    window.clearTimeout(TOOLTIP_TIMERS[id]);
+
+    TOOLTIP_TIMERS[id] = window.setTimeout(() => {
+        if (!isNotVisible(elem)) {
+            toggleOpacity(elem);
+        }
+        delete TOOLTIP_TIMERS[id];
+    }, TOOLTIP_MS);
+};
+
+const localZone = function () {
+    try {
+        return Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+    } catch (e) {
+        return '';
+    }
+};
+
+const zoneLabel = function (momentDate) {
+
+    let zone = localZone(),
+        offset = 'UTC' + momentDate.format('Z'),
+        label = zone ? zone + ' (' + offset + ')' : offset;
+
+    if (SHARED_ZONE && SHARED_ZONE !== zone) {
+        return label + ' · shared from ' + SHARED_ZONE;
+    }
+
+    return label;
+};
+
+const formatMoment = function (momentDate) {
+
+    //if time without clockunit don't need to render it
+    let hasClockUnit = 0 !== (momentDate.hours() || momentDate.minutes() /*|| momentDate.seconds()*/);
+
+    return momentDate.format(hasClockUnit ? CLOCK_PATTERN : DATE_PATTERN);
+};
+
+const calcRes = function (inputs, referenceDate) {
+
+    LAST_DURATION = false;
+    LAST_ZONE = '';
 
     let elements = toElement(inputs),
-        value_1 = elements[DATE_INPUT_NUMBER].value,
-        //parse to date, date input val
-        firstDate = parseDate(value_1),
-        //get val of add\subtract unit
-        value_2 = elements[ADD_INPUT_NUMBER].value,
-        //maybe its date
-        secondDate = parseDate(value_2);
+        value_1 = elements[DATE_INPUT_NUMBER].value.trim(),
+        value_2 = elements[ADD_INPUT_NUMBER].value.trim();
 
-    let res;
+    if (value_1.length === 0) {
+        return '';
+    }
+
+    //parse to date, date input val
+    let firstDate = parseDate(value_1, referenceDate);
+
+    if (null == firstDate) {
+        flashTooltip('date-tooltip');
+        return '';
+    }
+
+    let fixedDate_1 = fixDate(firstDate, firstDate.start.moment());
+
+    LAST_ZONE = zoneLabel(fixedDate_1);
+
+    if (value_2.length === 0) {
+        return formatMoment(fixedDate_1);
+    }
+
+    //maybe its date
+    let secondDate = parseDate(value_2, referenceDate);
 
     if (null == secondDate) {
 
-        value_2 = value_2.trim();
         //take unit from value
-        let operations = getOperations(value_2)
+        let operations = getOperations(value_2);
 
-        if (value_2.length > 0 && operations.filter(Boolean).length === 0) {
-            toggleTooltip()
-            return;
+        if (null == operations) {
+            flashTooltip('unit-tooltip');
+            return '';
         }
 
-        let adds = operations,
-            moment = firstDate.start.moment(),
-            fixedDate = fixDate(firstDate, moment),
-            //result
-            result = adds.reduce((acc, s) => acc.add(s.num, s.unit), fixedDate),
-            //if time without clockunit don't need to render it
-            hasNotClockUnit = (result.hours() && result.minutes() && result.seconds()) === 0,
-            pattern = hasNotClockUnit ? 'DD.MM.YYYY dddd MMMM' : 'DD.MM.YYYY HH:mm:ss dddd MMMM';
-
-        res = result.format(pattern);
-
-    } else {
-
-        let moment_1 = firstDate.start.moment(),
-            fixedDate_1 = fixDate(firstDate, moment_1),
-            moment_2 = secondDate.start.moment(),
-            fixedDate_2 = fixDate(secondDate, moment_2),
-            //result
-            result = makeDiff(fixedDate_1, fixedDate_2),
-            duration = moment.duration(result);
-
-        res = formatDuration(duration, fixedDate_1, fixedDate_2);
-
+        return formatMoment(operations.reduce((acc, s) => acc.add(s.num, s.unit), fixedDate_1));
     }
 
-    return res;
-}
+    let fixedDate_2 = fixDate(secondDate, secondDate.start.moment()),
+        duration = moment.duration(makeDiff(fixedDate_1, fixedDate_2));
 
-const onKeyUp = function (e) {
+    LAST_DURATION = duration;
+
+    return formatDuration(duration, fixedDate_1, fixedDate_2);
+};
+
+const renderResult = function (text) {
+
+    document.getElementById('result').innerHTML = text;
+
+    let zone = document.getElementById('timezone');
+
+    if (null != zone) {
+        zone.innerHTML = LAST_ZONE;
+    }
+};
+
+const runCalc = function () {
 
     let inputs = Array.from(document.getElementsByClassName('input'));
+
+    renderResult(calcRes(inputs, SHARED_REFERENCE));
+};
+
+const onKeyUp = function (e) {
 
     let isEnterPress = ENTER_KEY === e.keyCode;
 
@@ -129,7 +246,7 @@ const onKeyUp = function (e) {
         return;
     }
 
-    document.getElementById('result').innerHTML = calcRes(inputs);
+    runCalc();
 
     if (guideStage > 0) {
 
@@ -152,11 +269,23 @@ const makeDiff = function (a, b) {
     return a.diff(b);
 };
 
-const formatDuration = function (duration, date1, date2) {
+const formatTotalDays = function (duration) {
+
+    let days = Math.abs(duration.asDays());
+
+    return (days === Math.trunc(days) ? days : days.toFixed(2)) + ' days';
+};
+
+const formatDuration = function (duration, date1, date2, showDays) {
 
     //idk its bug or not; but fore me as a user i want to see date as expected. See 'format duration test'
     if (date1 != null && date2 != null && (date1.year() !== date2.year() && (date1.date() === date2.date() && date1.month() === date2.month()))) {
         return duration.humanize();
+    }
+
+    //now its suits, but can be as different func
+    if (showDays) {
+        return formatTotalDays(duration);
     }
 
     let s = [
@@ -185,8 +314,12 @@ const formatDuration = function (duration, date1, date2) {
 
 const parseDate = function (string, /*for tests*/ referenceDate) {
 
+    if (DURATION.test(string)) {
+        return null;
+    }
+
     //easy, but bad, it parse words-dates, ether way u need to known all words
-    let isDate = chrono.parseDate(string) !== null,
+    let isDate = chrono.parseDate(string, referenceDate) !== null,
         params = {forwardDate: true};
 
     if (isDate) {
@@ -195,7 +328,7 @@ const parseDate = function (string, /*for tests*/ referenceDate) {
 
     //не понятно почему либа сама это не умеет
     if (RUS_DATE_REGEX.test(string)) {
-        return chrono.en_GB.parse(string, referenceDate, params)[0];
+        return chrono.en_GB.parse(string, referenceDate, {forwardDate: true})[0];
     }
 
     return chrono.parse(string, referenceDate, params)[0];
@@ -212,39 +345,121 @@ const fixDate = function (chronoObj, momentDate) {
 };
 
 
-const debounceTooltip = (callback, wait) => {
-    return (...args) => {
-        window.clearTimeout(tooltipTimeunitId);
-        tooltipTimeunitId = window.setTimeout(() => {
-            callback(...args);
-            tooltipTimeunitId = null;
-        }, wait);
-    };
-}
+const baseUrl = function () {
+    return location.href.split('#')[0].split('?')[0];
+};
 
-const toggleTooltip = function () {
-    let elem = document.getElementById('unit-tooltip');
-    let callback = toggleOpacity.bind(null, elem);
-    if (tooltipTimeunitId === null) {
-        callback()
+const buildShareUrl = function () {
+
+    let inputs = document.getElementsByClassName('input'),
+        params = new URLSearchParams();
+
+    params.set(SHARE_DATE, inputs[0].value.trim());
+    params.set(SHARE_UNIT, inputs[1].value.trim());
+    params.set(SHARE_REF, String(Date.now()));
+
+    let zone = localZone();
+
+    if (zone) {
+        params.set(SHARE_ZONE, zone);
     }
-    debounceTooltip(callback, 2000)();
+
+    return baseUrl() + '?' + params.toString();
 };
 
-const debounceGuide = (callback, wait) => {
-    return (...args) => {
-        window.clearTimeout(guideTimeunitId);
-        guideTimeunitId = window.setTimeout(() => {
-            callback(...args);
-            guideTimeunitId = null;
-        }, wait);
-    };
-}
+const copyText = function (text) {
 
-const toggleOpacity = function (element) {
-    element.classList.toggle('opacity-0')
-    element.classList.toggle('opacity-1')
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        return navigator.clipboard.writeText(text);
+    }
+
+    return new Promise((resolve, reject) => {
+
+        let area = document.createElement('textarea');
+
+        area.value = text;
+        area.setAttribute('readonly', '');
+        area.style.position = 'fixed';
+        area.style.opacity = '0';
+
+        document.body.appendChild(area);
+        area.select();
+
+        let copied = document.execCommand('copy');
+
+        document.body.removeChild(area);
+
+        copied ? resolve() : reject();
+    });
 };
+
+const showCopied = function (text) {
+
+    let elem = document.getElementsByClassName('copy-text')[0];
+
+    elem.innerHTML = text;
+    elem.classList.remove('hidden');
+
+    window.clearTimeout(copiedTimerId);
+
+    copiedTimerId = window.setTimeout(() => {
+        elem.classList.add('hidden');
+        copiedTimerId = null;
+    }, COPIED_MS);
+};
+
+const onShare = function () {
+
+    let inputs = document.getElementsByClassName('input');
+
+    if (inputs[0].value.trim().length === 0) {
+        flashTooltip('date-tooltip');
+        return;
+    }
+
+    let url = buildShareUrl();
+
+    history.replaceState(null, '', url);
+
+    copyText(url)
+        .then(() => showCopied('Copied!'))
+        .catch(() => showCopied('Copy from address bar'));
+};
+
+const clearSharedState = function () {
+
+    if (null == SHARED_REFERENCE && null == SHARED_ZONE) {
+        return;
+    }
+
+    SHARED_REFERENCE = null;
+    SHARED_ZONE = null;
+
+    history.replaceState(null, '', baseUrl());
+};
+
+const applySharedState = function () {
+
+    let params = new URLSearchParams(location.search),
+        date = params.get(SHARE_DATE);
+
+    if (null == date) {
+        return false;
+    }
+
+    let inputs = document.getElementsByClassName('input');
+
+    inputs[0].value = date;
+    inputs[1].value = params.get(SHARE_UNIT) || '';
+
+    let ref = Number(params.get(SHARE_REF));
+
+    SHARED_REFERENCE = Number.isFinite(ref) && ref > 0 ? new Date(ref) : null;
+    SHARED_ZONE = params.get(SHARE_ZONE);
+
+    return true;
+};
+
 
 const toggleGuide = function (e) {
 
@@ -263,14 +478,16 @@ const toggleGuide = function (e) {
     let inputs = document.getElementsByClassName('input'),
         input_1 = inputs[0],
         input_2 = inputs[1],
-        result = document.getElementById('result'),
         tooltips = document.getElementById('tooltips');
 
     input_1.value = null;
     input_2.value = null;
     input_1.readOnly = false;
     input_2.readOnly = false;
-    result.innerHTML = null;
+
+    LAST_ZONE = '';
+    renderResult('');
+
     Array.from(tooltips.children).forEach(a => {
         if (!a.classList.contains('opacity-0')) {
             toggleOpacity(a)
@@ -292,8 +509,7 @@ const toggleStage = function (isNext) {
 
     let inputs = document.getElementsByClassName('input'),
         input_1 = inputs[0],
-        input_2 = inputs[1],
-        result = document.getElementById('result');
+        input_2 = inputs[1];
 
     if (guideStage > 3) {
         toggleGuide({type: 'system'});
@@ -307,7 +523,8 @@ const toggleStage = function (isNext) {
     if (guideStage === 1) {
         input_1.value = '22.11.1996';
         input_2.value = '33y';
-        result.innerHTML = null;
+        LAST_ZONE = '';
+        renderResult('');
         input_1.readOnly = true;
         input_2.readOnly = true;
 
@@ -333,7 +550,8 @@ const toggleStage = function (isNext) {
 
         input_1.value = '22.11.1996';
         input_2.value = '18.11.2115';
-        result.innerHTML = null;
+        LAST_ZONE = '';
+        renderResult('');
         input_1.readOnly = true;
         input_2.readOnly = true;
 
@@ -357,7 +575,8 @@ const toggleStage = function (isNext) {
 
         input_1.value = 'now';
         input_2.value = 'next friday';
-        result.innerHTML = null;
+        LAST_ZONE = '';
+        renderResult('');
         input_1.readOnly = true;
         input_2.readOnly = true;
 
@@ -374,27 +593,32 @@ window.onload = function () {
     let inputs = Array.from(document.getElementsByClassName('input'));
 
     inputs.forEach(input => {
+        //cleans at refresh
+        input.value = null;
         input.addEventListener('keyup', onKeyUp)
     })
 
     let questionMark = document.getElementsByClassName('question-mark')[0],
         next = document.getElementsByClassName('next')[0],
-        prev = document.getElementsByClassName('prev')[0];
+        prev = document.getElementsByClassName('prev')[0],
+        share = document.getElementById('share-btn');
 
     questionMark.addEventListener('click', toggleGuide);
     next.addEventListener('click', () => toggleStage(true));
     prev.addEventListener('click', () => toggleStage(false));
+    share.addEventListener('click', onShare);
 
     document.getElementById('result').addEventListener('click', (e) => {
 
-        let text = e.target.innerHTML;
+        if (LAST_DURATION) {
+            e.target.innerHTML = e.target.innerHTML + ' (' + formatTotalDays(LAST_DURATION) + ')';
+            LAST_DURATION = false;
+        }
 
-        navigator.clipboard.writeText(text)
-            .then(() => {
-            })
-            .catch(err => {
-                console.error("Error copying text: ", err);
-            });
     });
-}
 
+    if (applySharedState()) {
+        runCalc();
+        clearSharedState();
+    }
+}
