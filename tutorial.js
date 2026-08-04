@@ -22,7 +22,7 @@ let tutorialFollowId = null;
 let sleepWakers = [];
 
 const tutorialReduced = function () {
-    return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    return false;
 };
 
 //a cancelled step has to resume so it can see it is stale and return - a sleep
@@ -47,7 +47,7 @@ const sleep = function (ms) {
             resolve();
         };
 
-        timer = window.setTimeout(done, tutorialReduced() ? Math.min(ms, 120) : ms);
+        timer = window.setTimeout(done, ms);
         sleepWakers.push(done);
     });
 };
@@ -572,29 +572,31 @@ const TUTORIAL_STEPS = {
         ], cancelled);
         if (cancelled()) return;
 
-        await sleep(TUTORIAL_PAUSE);
+        await sleep(2500);
         if (cancelled()) return;
 
         await type(1, '22.11.1996', cancelled);
         if (cancelled()) return;
 
-        await sleep(TUTORIAL_BEAT);
+        await sleep(1000);
         if (cancelled()) return;
 
         await type(2, '33y', cancelled);
         if (cancelled()) return;
+
+        await sleep(2000);
 
         await showTips([
             {target: 'input-2', side: 'below', text: 'Cursor in either field, then Enter'}
         ], cancelled);
         if (cancelled()) return;
 
-        await sleep(TUTORIAL_PAUSE);
+        await sleep(3000);
         if (cancelled()) return;
 
         submit();
 
-        await sleep(TUTORIAL_BEAT);
+        await sleep(1500);
         if (cancelled()) return;
 
         await showTips([
