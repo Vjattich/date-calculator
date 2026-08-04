@@ -236,6 +236,10 @@ const calcRes = function (inputs, referenceDate) {
 
 const renderResult = function (text) {
 
+    if (!text) {
+        return;
+    }
+
     document.getElementById('result').innerHTML = text;
 
     let zone = document.getElementById('timezone');
