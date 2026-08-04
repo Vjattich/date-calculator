@@ -114,7 +114,14 @@
             stroke-linecap: round;
         }
 
+        .tutorial-arrow-head {
+            fill: #000000;
+            stroke: none;
+            opacity: 0;
+        }
+
         .tutorial-tip {
+            will-change: opacity, transform;
             position: absolute;
             max-width: 13em;
             padding: 0.45em 0.7em;
@@ -128,7 +135,7 @@
             text-align: center;
             opacity: 0;
             transform: translateY(0.4em) scale(0.96);
-            transition: opacity 0.35s ease, transform 0.35s ease;
+            transition: opacity 0.3s ease, transform 0.3s ease;
         }
 
         .tutorial-tip.show {
@@ -140,12 +147,13 @@
             animation: tutorial-pulse 1.6s ease-in-out infinite;
         }
 
+        /* opacity is composited; drop-shadow repainted the element every frame */
         @keyframes tutorial-pulse {
             0%, 100% {
-                filter: none;
+                opacity: 1;
             }
             50% {
-                filter: drop-shadow(0 0 5px rgba(0, 0, 0, 0.55));
+                opacity: 0.5;
             }
         }
 
@@ -413,7 +421,7 @@
             }
 
             .calendar-holder {
-                margin-top: 2.8em;
+                margin-top: 1.8em;
             }
 
             .copy-text {

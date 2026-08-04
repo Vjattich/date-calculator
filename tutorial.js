@@ -1,9 +1,13 @@
 const TUTORIAL_TYPE_MS = 55;
 const TUTORIAL_GAP = 52;
-const TUTORIAL_PAUSE = 900;
+const TUTORIAL_PAUSE = 560;
 const TUTORIAL_BEAT = 260;
-const TUTORIAL_ARROW_MS = 500;
-const TUTORIAL_FADE = 280;
+const TUTORIAL_TIP_MS = 300;
+const TUTORIAL_LINE_MS = 420;
+const TUTORIAL_CONE_MS = 170;
+const TUTORIAL_CONE_LEN = 10;
+const TUTORIAL_LINE_OUT_MS = 280;
+const TUTORIAL_FADE = 240;
 const TUTORIAL_ERASE_MS = 26;
 
 const TUTORIAL_STEPS = {
@@ -113,7 +117,8 @@ let tutorialIndex = -1;
 let tutorialToken = 0;
 let tutorialTimers = [];
 let tutorialTips = [];
-let tutorialLeaving = [];
+let tutorialGeometry = '';
+let tutorialFollowId = null;
 
 const tutorialReduced = function () {
     return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -180,99 +185,49 @@ const tutorialScale = function () {
     return box.width && layer.offsetWidth ? box.width / layer.offsetWidth : 1;
 };
 
-const layerRect = function (el) {
-
-    let scale = tutorialScale(),
-        box = el.getBoundingClientRect();
-
-    return {
-        left: box.left / scale,
-        top: box.top / scale,
-        right: box.right / scale,
-        bottom: box.bottom / scale,
-        width: box.width / scale,
-        height: box.height / scale
-    };
-};
-
-const layerWidth = function () {
-    return tutorialLayer().offsetWidth;
-};
-
-const layerHeight = function () {
-    return tutorialLayer().offsetHeight;
-};
-
-const tutorialNarrow = function () {
-    return layerWidth() < 620;
-};
-
-const tutorialGap = function () {
-    return Math.max(22, Math.min(TUTORIAL_GAP, layerWidth() * 0.1));
-};
-
-const purgeLeaving = function () {
-
-    tutorialLeaving.forEach(tip => {
-        tip.el.remove();
-        tip.path.remove();
-    });
-
-    tutorialLeaving = [];
-};
 
 const purgeTips = function () {
 
-    purgeLeaving();
-
-    tutorialTips.forEach(tip => {
-        tip.el.remove();
-        tip.path.remove();
-    });
+    Array.from(document.querySelectorAll('.tutorial-tip, .tutorial-arrow')).forEach(el => el.remove());
+    Array.from(document.querySelectorAll('.tutorial-target')).forEach(el => el.classList.remove('tutorial-target'));
 
     tutorialTips = [];
-
-    Array.from(document.querySelectorAll('.tutorial-target')).forEach(el => el.classList.remove('tutorial-target'));
 };
 
-const retractArrow = function (tip) {
-
-    let total = tip.path.getTotalLength();
-
-    if (!total || tutorialReduced()) {
-        tip.path.style.opacity = '0';
-        return;
-    }
-
-    tip.path.style.transition = 'stroke-dashoffset ' + TUTORIAL_FADE + 'ms ease-in';
-    tip.path.style.strokeDasharray = total;
-    tip.path.style.strokeDashoffset = total;
-};
-
-//fade the current tips out and only then drop them from the dom
-const hideTips = async function () {
-
-    purgeLeaving();
+//fire and forget: each leaving tip owns the timer that removes it, so a cancel
+//in the middle of a step can never strand it or yank it out mid fade
+const hideTips = function () {
 
     let leaving = tutorialTips;
 
     tutorialTips = [];
 
-    if (leaving.length === 0) {
-        return;
-    }
-
-    tutorialLeaving = leaving;
-
     leaving.forEach(tip => {
-        tip.el.classList.remove('show');
+
+        tip.timers.forEach(id => window.clearTimeout(id));
+        tip.timers = [];
+
         tip.target.classList.remove('tutorial-target');
-        retractArrow(tip);
+
+        //1. the cone goes
+        tip.head.style.transition = 'opacity ' + TUTORIAL_CONE_MS + 'ms ease-in';
+        tip.head.style.opacity = '0';
+
+        //2. the line un-draws, tail first, arrowhead last
+        window.setTimeout(() => {
+            tip.path.style.transition = 'stroke-dashoffset ' + TUTORIAL_LINE_OUT_MS + 'ms ease-in';
+            tip.path.style.strokeDashoffset = -tip.length;
+        }, TUTORIAL_CONE_MS);
+
+        //3. only then the tooltip
+        window.setTimeout(() => tip.el.classList.remove('show'), TUTORIAL_CONE_MS + TUTORIAL_LINE_OUT_MS);
+
+        window.setTimeout(() => {
+            tip.el.remove();
+            tip.path.remove();
+            tip.head.remove();
+        }, TUTORIAL_CONE_MS + TUTORIAL_LINE_OUT_MS + TUTORIAL_TIP_MS + 60);
     });
-
-    await tutorialWait(TUTORIAL_FADE);
-
-    purgeLeaving();
 };
 
 const addTip = function (spec) {
@@ -293,13 +248,20 @@ const addTip = function (spec) {
     let path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
 
     path.setAttribute('class', 'tutorial-arrow');
-    path.setAttribute('marker-end', 'url(#tutorial-head)');
+
+    //the cone is its own element so it can be timed apart from the line;
+    //as a marker-end it would paint instantly, dash state or not
+    let head = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+
+    head.setAttribute('class', 'tutorial-arrow tutorial-arrow-head');
+    head.setAttribute('d', 'M 0 0 L ' + (-TUTORIAL_CONE_LEN) + ' -4 L ' + (-TUTORIAL_CONE_LEN) + ' 4 Z');
 
     tutorialArrows().appendChild(path);
+    tutorialArrows().appendChild(head);
 
     target.classList.add('tutorial-target');
 
-    tutorialTips.push({el: el, path: path, target: target, side: spec.side});
+    tutorialTips.push({el: el, path: path, head: head, target: target, side: spec.side, length: 0, drawn: false, timers: []});
 };
 
 const edgePoint = function (rect, towardX, towardY, pad) {
@@ -322,26 +284,83 @@ const edgePoint = function (rect, towardX, towardY, pad) {
     return {x: cx + dx * scale, y: cy + dy * scale};
 };
 
-const placeTip = function (tip) {
+const pointAt = function (from, control, to, t) {
 
-    let box = layerRect(tip.target),
-        el = tip.el,
-        w = el.offsetWidth,
-        h = el.offsetHeight,
-        gap = tutorialGap(),
-        cx = box.left + box.width / 2,
+    let mt = 1 - t;
+
+    return {
+        x: mt * mt * from.x + 2 * mt * t * control.x + t * t * to.x,
+        y: mt * mt * from.y + 2 * mt * t * control.y + t * t * to.y
+    };
+};
+
+//the cone covers the last stretch of the curve, so it has to line up with that
+//stretch - the tangent at the very end points somewhere else on a bent arrow
+const coneAngle = function (from, control, to, span) {
+
+    let back = from;
+
+    for (let i = 1; i <= 40; i++) {
+
+        let p = pointAt(from, control, to, 1 - i / 40),
+            dx = to.x - p.x,
+            dy = to.y - p.y;
+
+        if (dx * dx + dy * dy >= span * span) {
+            back = p;
+            break;
+        }
+
+        back = p;
+    }
+
+    return Math.atan2(to.y - back.y, to.x - back.x) * 180 / Math.PI;
+};
+
+//sampled instead of getTotalLength(), which would force a layout per arrow
+const curveLength = function (from, control, to) {
+
+    let len = 0,
+        prevX = from.x,
+        prevY = from.y;
+
+    for (let i = 1; i <= 16; i++) {
+
+        let t = i / 16,
+            mt = 1 - t,
+            x = mt * mt * from.x + 2 * mt * t * control.x + t * t * to.x,
+            y = mt * mt * from.y + 2 * mt * t * control.y + t * t * to.y;
+
+        len += Math.sqrt((x - prevX) * (x - prevX) + (y - prevY) * (y - prevY));
+
+        prevX = x;
+        prevY = y;
+    }
+
+    return len * 1.02;
+};
+
+//everything here is client space: target rects, the viewport and the tip size all
+//agree, and only the final write converts into the zoomed layer
+const tipBoxFor = function (tip, box, w, h, gap, vw, vh) {
+
+    let cx = box.left + box.width / 2,
         cy = box.top + box.height / 2,
         side = tip.side,
         x,
         y;
 
-    //no horizontal room on a phone, so sideways tips fall back to vertical
-    if (tutorialNarrow()) {
-        if (side === 'right') {
-            side = 'below';
-        } else if (side === 'left') {
-            side = 'above';
-        }
+    //a side that does not fit becomes a side that does
+    if (side === 'right' && box.right + gap + w > vw - 8) {
+        side = box.left - gap - w < 8 ? 'below' : 'left';
+    } else if (side === 'left' && box.left - gap - w < 8) {
+        side = box.right + gap + w > vw - 8 ? 'below' : 'right';
+    }
+
+    if (side === 'above' && box.top - gap - h < 8) {
+        side = 'below';
+    } else if (side === 'below' && box.bottom + gap + h > vh - 8) {
+        side = 'above';
     }
 
     if (side === 'above') {
@@ -358,54 +377,130 @@ const placeTip = function (tip) {
         y = cy - h / 2;
     }
 
-    x = Math.max(10, Math.min(x, layerWidth() - w - 10));
-    y = Math.max(10, Math.min(y, layerHeight() - h - 10));
+    x = Math.max(8, Math.min(x, vw - w - 8));
+    y = Math.max(8, Math.min(y, vh - h - 8));
 
-    el.style.left = x + 'px';
-    el.style.top = y + 'px';
+    return {left: x, top: y, right: x + w, bottom: y + h, width: w, height: h};
 };
 
-const drawArrow = function (tip, animate) {
+const arrowFor = function (tipBox, targetBox) {
 
-    let tipBox = layerRect(tip.el),
-        targetBox = layerRect(tip.target),
-        tipCx = tipBox.left + tipBox.width / 2,
+    let tipCx = tipBox.left + tipBox.width / 2,
         tipCy = tipBox.top + tipBox.height / 2,
         targetCx = targetBox.left + targetBox.width / 2,
         targetCy = targetBox.top + targetBox.height / 2,
         from = edgePoint(tipBox, targetCx, targetCy, 4),
         to = edgePoint(targetBox, tipCx, tipCy, 10),
-        mx = (from.x + to.x) / 2,
-        my = (from.y + to.y) / 2,
         dx = to.x - from.x,
         dy = to.y - from.y,
         len = Math.sqrt(dx * dx + dy * dy) || 1,
-        bend = Math.min(len * 0.22, 44);
+        bend = Math.min(len * 0.16, 30);
 
-    tip.path.setAttribute('d', 'M ' + from.x + ' ' + from.y + ' Q ' + (mx - dy / len * bend) + ' ' + (my + dx / len * bend) + ' ' + to.x + ' ' + to.y);
+    return {
+        from: from,
+        to: to,
+        control: {x: (from.x + to.x) / 2 - dy / len * bend, y: (from.y + to.y) / 2 + dx / len * bend}
+    };
+};
 
-    if (!animate || tutorialReduced()) {
-        tip.path.style.strokeDasharray = 'none';
-        tip.path.style.strokeDashoffset = '0';
+const geometryKey = function () {
+
+    return tutorialTips.map(tip => {
+
+        let b = tip.target.getBoundingClientRect();
+
+        return Math.round(b.left) + ',' + Math.round(b.top) + ',' + Math.round(b.width) + ',' + Math.round(b.height);
+    }).join('|');
+};
+
+//one read pass, then one write pass - never a read after a write
+const layoutTips = function (animate) {
+
+    if (tutorialTips.length === 0) {
         return;
     }
 
-    let total = tip.path.getTotalLength();
+    let scale = tutorialScale(),
+        vw = window.innerWidth,
+        vh = window.innerHeight,
+        gap = Math.max(18, Math.min(TUTORIAL_GAP, vw * 0.06)),
+        measured = tutorialTips.map(tip => ({
+            box: tip.target.getBoundingClientRect(),
+            w: tip.el.offsetWidth * scale,
+            h: tip.el.offsetHeight * scale
+        }));
 
-    tip.path.style.transition = 'none';
-    tip.path.style.strokeDasharray = total;
-    tip.path.style.strokeDashoffset = total;
+    tutorialGeometry = measured.map(m => Math.round(m.box.left) + ',' + Math.round(m.box.top) + ',' + Math.round(m.box.width) + ',' + Math.round(m.box.height)).join('|');
 
-    tip.path.getBoundingClientRect();
+    tutorialTips.forEach((tip, i) => {
 
-    tip.path.style.transition = 'stroke-dashoffset ' + TUTORIAL_ARROW_MS + 'ms ease-out';
-    tip.path.style.strokeDashoffset = '0';
+        let m = measured[i],
+            tipBox = tipBoxFor(tip, m.box, m.w, m.h, gap, vw, vh),
+            arrow = arrowFor(tipBox, m.box),
+            from = arrow.from,
+            control = arrow.control,
+            to = arrow.to,
+            length = curveLength(from, control, to) / scale;
+
+        tip.el.style.left = (tipBox.left / scale) + 'px';
+        tip.el.style.top = (tipBox.top / scale) + 'px';
+
+        tip.length = length;
+        tip.path.setAttribute('d', 'M ' + (from.x / scale) + ' ' + (from.y / scale) +
+            ' Q ' + (control.x / scale) + ' ' + (control.y / scale) +
+            ' ' + (to.x / scale) + ' ' + (to.y / scale));
+
+        let angle = coneAngle(from, control, to, TUTORIAL_CONE_LEN * scale);
+
+        tip.head.setAttribute('transform', 'translate(' + (to.x / scale) + ' ' + (to.y / scale) + ') rotate(' + angle + ')');
+
+        tip.path.style.transition = 'none';
+        tip.path.style.strokeDasharray = length;
+
+        if (animate && !tutorialReduced()) {
+            tip.drawn = false;
+        }
+
+        tip.path.style.strokeDashoffset = tip.drawn ? 0 : length;
+    });
 };
 
-const layoutTips = function (animate) {
+const revealTips = function () {
 
-    tutorialTips.forEach(tip => placeTip(tip));
-    tutorialTips.forEach(tip => drawArrow(tip, animate));
+    tutorialTips.forEach(tip => {
+
+        //1. the tooltip
+        tip.el.classList.add('show');
+
+        //2. the line draws out of it toward the target
+        tip.timers.push(window.setTimeout(() => {
+            tip.drawn = true;
+            tip.path.style.transition = 'stroke-dashoffset ' + TUTORIAL_LINE_MS + 'ms ease-out';
+            tip.path.style.strokeDashoffset = 0;
+        }, TUTORIAL_TIP_MS));
+
+        //3. the cone lands last
+        tip.timers.push(window.setTimeout(() => {
+            tip.head.style.transition = 'opacity ' + TUTORIAL_CONE_MS + 'ms ease-out';
+            tip.head.style.opacity = '1';
+        }, TUTORIAL_TIP_MS + TUTORIAL_LINE_MS));
+    });
+};
+
+//the result changes width when it fills in or gets expanded, and the calendar
+//button appears and disappears - anything anchored to them has to follow
+const followTips = function () {
+
+    if (!tutorialActive) {
+        tutorialFollowId = null;
+        return;
+    }
+
+    if (tutorialTips.length > 0 && geometryKey() !== tutorialGeometry) {
+        layoutTips(false);
+    }
+
+    tutorialFollowId = window.requestAnimationFrame(followTips);
 };
 
 const tutorialFrame = function () {
@@ -420,14 +515,10 @@ const showPhase = async function (step, phase, token) {
         return;
     }
 
-    await hideTips();
-
-    if (tutorialStale(token)) {
-        return;
-    }
-
+    hideTips();
     specs.forEach(addTip);
 
+    //measure on one frame, paint the start state, reveal on the next
     await tutorialFrame();
 
     if (tutorialStale(token)) {
@@ -435,7 +526,14 @@ const showPhase = async function (step, phase, token) {
     }
 
     layoutTips(true);
-    tutorialTips.forEach(tip => tip.el.classList.add('show'));
+
+    await tutorialFrame();
+
+    if (tutorialStale(token)) {
+        return;
+    }
+
+    revealTips();
 };
 
 
@@ -534,11 +632,19 @@ const runStep = async function (key) {
     updateCounter();
 
     fadeResult(true);
+    hideTips();
 
-    await hideTips();
+    //erasing starts immediately so a click never looks like a freeze
+    await Promise.all([
+        eraseInput(inputs[1], token),
+        tutorialWait(TUTORIAL_FADE)
+    ]);
     if (tutorialStale(token)) return;
 
     clearResult();
+
+    await eraseInput(inputs[0], token);
+    if (tutorialStale(token)) return;
 
     await showPhase(step, 'start', token);
     if (tutorialStale(token)) return;
@@ -619,6 +725,11 @@ const startTutorial = function () {
     tutorialActive = true;
 
     document.body.classList.add('tutorial-on');
+
+    if (null == tutorialFollowId) {
+        tutorialFollowId = window.requestAnimationFrame(followTips);
+    }
+
     document.getElementsByClassName('next')[0].classList.remove('hidden');
     document.getElementsByClassName('prev')[0].classList.remove('hidden');
 
@@ -632,21 +743,15 @@ const stopTutorial = async function () {
     }
 
     tutorialCancel();
-
-    let leaving = tutorialTips;
-
-    tutorialTips = [];
-    tutorialLeaving = tutorialLeaving.concat(leaving);
-
-    leaving.forEach(tip => {
-        tip.el.classList.remove('show');
-        tip.target.classList.remove('tutorial-target');
-        retractArrow(tip);
-    });
-
-    window.setTimeout(purgeTips, TUTORIAL_FADE);
+    hideTips();
 
     tutorialActive = false;
+
+    if (null != tutorialFollowId) {
+        window.cancelAnimationFrame(tutorialFollowId);
+        tutorialFollowId = null;
+    }
+
     tutorialIndex = -1;
 
     let inputs = tutorialInputs();
