@@ -3,6 +3,8 @@ const TUTORIAL_GAP = 52;
 const TUTORIAL_PAUSE = 900;
 const TUTORIAL_BEAT = 260;
 const TUTORIAL_ARROW_MS = 500;
+const TUTORIAL_FADE = 280;
+const TUTORIAL_ERASE_MS = 26;
 
 const TUTORIAL_STEPS = {
 
@@ -111,6 +113,7 @@ let tutorialIndex = -1;
 let tutorialToken = 0;
 let tutorialTimers = [];
 let tutorialTips = [];
+let tutorialLeaving = [];
 
 const tutorialReduced = function () {
     return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -168,16 +171,108 @@ const tutorialArrows = function () {
     return document.getElementById('tutorial-arrows');
 };
 
-const clearTips = function () {
+//body carries zoom:125%, so getBoundingClientRect and style.left live in different spaces
+const tutorialScale = function () {
 
-    tutorialTips.forEach(tip => tip.el.remove());
+    let layer = tutorialLayer(),
+        box = layer.getBoundingClientRect();
+
+    return box.width && layer.offsetWidth ? box.width / layer.offsetWidth : 1;
+};
+
+const layerRect = function (el) {
+
+    let scale = tutorialScale(),
+        box = el.getBoundingClientRect();
+
+    return {
+        left: box.left / scale,
+        top: box.top / scale,
+        right: box.right / scale,
+        bottom: box.bottom / scale,
+        width: box.width / scale,
+        height: box.height / scale
+    };
+};
+
+const layerWidth = function () {
+    return tutorialLayer().offsetWidth;
+};
+
+const layerHeight = function () {
+    return tutorialLayer().offsetHeight;
+};
+
+const tutorialNarrow = function () {
+    return layerWidth() < 620;
+};
+
+const tutorialGap = function () {
+    return Math.max(22, Math.min(TUTORIAL_GAP, layerWidth() * 0.1));
+};
+
+const purgeLeaving = function () {
+
+    tutorialLeaving.forEach(tip => {
+        tip.el.remove();
+        tip.path.remove();
+    });
+
+    tutorialLeaving = [];
+};
+
+const purgeTips = function () {
+
+    purgeLeaving();
+
+    tutorialTips.forEach(tip => {
+        tip.el.remove();
+        tip.path.remove();
+    });
+
     tutorialTips = [];
 
-    let arrows = tutorialArrows();
+    Array.from(document.querySelectorAll('.tutorial-target')).forEach(el => el.classList.remove('tutorial-target'));
+};
 
-    Array.from(arrows.getElementsByClassName('tutorial-arrow')).forEach(path => path.remove());
+const retractArrow = function (tip) {
 
-    Array.from(document.getElementsByClassName('tutorial-target')).forEach(el => el.classList.remove('tutorial-target'));
+    let total = tip.path.getTotalLength();
+
+    if (!total || tutorialReduced()) {
+        tip.path.style.opacity = '0';
+        return;
+    }
+
+    tip.path.style.transition = 'stroke-dashoffset ' + TUTORIAL_FADE + 'ms ease-in';
+    tip.path.style.strokeDasharray = total;
+    tip.path.style.strokeDashoffset = total;
+};
+
+//fade the current tips out and only then drop them from the dom
+const hideTips = async function () {
+
+    purgeLeaving();
+
+    let leaving = tutorialTips;
+
+    tutorialTips = [];
+
+    if (leaving.length === 0) {
+        return;
+    }
+
+    tutorialLeaving = leaving;
+
+    leaving.forEach(tip => {
+        tip.el.classList.remove('show');
+        tip.target.classList.remove('tutorial-target');
+        retractArrow(tip);
+    });
+
+    await tutorialWait(TUTORIAL_FADE);
+
+    purgeLeaving();
 };
 
 const addTip = function (spec) {
@@ -229,31 +324,42 @@ const edgePoint = function (rect, towardX, towardY, pad) {
 
 const placeTip = function (tip) {
 
-    let box = tip.target.getBoundingClientRect(),
+    let box = layerRect(tip.target),
         el = tip.el,
         w = el.offsetWidth,
         h = el.offsetHeight,
+        gap = tutorialGap(),
         cx = box.left + box.width / 2,
         cy = box.top + box.height / 2,
+        side = tip.side,
         x,
         y;
 
-    if (tip.side === 'above') {
+    //no horizontal room on a phone, so sideways tips fall back to vertical
+    if (tutorialNarrow()) {
+        if (side === 'right') {
+            side = 'below';
+        } else if (side === 'left') {
+            side = 'above';
+        }
+    }
+
+    if (side === 'above') {
         x = cx - w / 2;
-        y = box.top - TUTORIAL_GAP - h;
-    } else if (tip.side === 'below') {
+        y = box.top - gap - h;
+    } else if (side === 'below') {
         x = cx - w / 2;
-        y = box.bottom + TUTORIAL_GAP;
-    } else if (tip.side === 'left') {
-        x = box.left - TUTORIAL_GAP - w;
+        y = box.bottom + gap;
+    } else if (side === 'left') {
+        x = box.left - gap - w;
         y = cy - h / 2;
     } else {
-        x = box.right + TUTORIAL_GAP;
+        x = box.right + gap;
         y = cy - h / 2;
     }
 
-    x = Math.max(10, Math.min(x, window.innerWidth - w - 10));
-    y = Math.max(10, Math.min(y, window.innerHeight - h - 10));
+    x = Math.max(10, Math.min(x, layerWidth() - w - 10));
+    y = Math.max(10, Math.min(y, layerHeight() - h - 10));
 
     el.style.left = x + 'px';
     el.style.top = y + 'px';
@@ -261,8 +367,8 @@ const placeTip = function (tip) {
 
 const drawArrow = function (tip, animate) {
 
-    let tipBox = tip.el.getBoundingClientRect(),
-        targetBox = tip.target.getBoundingClientRect(),
+    let tipBox = layerRect(tip.el),
+        targetBox = layerRect(tip.target),
         tipCx = tipBox.left + tipBox.width / 2,
         tipCy = tipBox.top + tipBox.height / 2,
         targetCx = targetBox.left + targetBox.width / 2,
@@ -302,7 +408,11 @@ const layoutTips = function (animate) {
     tutorialTips.forEach(tip => drawArrow(tip, animate));
 };
 
-const showPhase = function (step, phase) {
+const tutorialFrame = function () {
+    return new Promise(resolve => window.requestAnimationFrame(resolve));
+};
+
+const showPhase = async function (step, phase, token) {
 
     let specs = step.tips[phase];
 
@@ -310,15 +420,58 @@ const showPhase = function (step, phase) {
         return;
     }
 
-    clearTips();
+    await hideTips();
+
+    if (tutorialStale(token)) {
+        return;
+    }
+
     specs.forEach(addTip);
 
-    window.requestAnimationFrame(() => {
-        layoutTips(true);
-        tutorialTips.forEach(tip => tip.el.classList.add('show'));
-    });
+    await tutorialFrame();
+
+    if (tutorialStale(token)) {
+        return;
+    }
+
+    layoutTips(true);
+    tutorialTips.forEach(tip => tip.el.classList.add('show'));
 };
 
+
+const eraseInput = async function (input, token) {
+
+    input.classList.add('tutorial-typing');
+
+    while (input.value.length > 0) {
+
+        if (tutorialStale(token)) {
+            input.classList.remove('tutorial-typing');
+            return;
+        }
+
+        input.value = input.value.slice(0, -1);
+        await tutorialWait(TUTORIAL_ERASE_MS);
+    }
+
+    input.classList.remove('tutorial-typing');
+};
+
+//steps often share a field, retyping an identical value just looks like a glitch
+const retypeInto = async function (input, text, token) {
+
+    if (input.value === text) {
+        return;
+    }
+
+    await eraseInput(input, token);
+
+    if (tutorialStale(token)) {
+        return;
+    }
+
+    await typeInto(input, text, token);
+};
 
 const typeInto = async function (input, text, token) {
 
@@ -346,6 +499,15 @@ const flashEnter = function (input) {
     tutorialTimers.push(window.setTimeout(() => input.classList.remove('tutorial-enter'), 420));
 };
 
+const fadeResult = function (out) {
+
+    let result = document.getElementsByClassName('result')[0];
+
+    if (null != result) {
+        result.classList.toggle('result-out', out);
+    }
+};
+
 const runAction = function (name) {
 
     if (name === 'click-result') {
@@ -366,42 +528,48 @@ const runStep = async function (key) {
         step = TUTORIAL_STEPS[key],
         inputs = tutorialInputs();
 
-    clearTips();
-    clearResult();
-
-    inputs[0].value = '';
-    inputs[1].value = '';
     inputs[0].readOnly = true;
     inputs[1].readOnly = true;
 
     updateCounter();
 
-    showPhase(step, 'start');
+    fadeResult(true);
+
+    await hideTips();
+    if (tutorialStale(token)) return;
+
+    clearResult();
+
+    await showPhase(step, 'start', token);
+    if (tutorialStale(token)) return;
 
     await tutorialWait(step.tips.start ? TUTORIAL_PAUSE : TUTORIAL_BEAT);
     if (tutorialStale(token)) return;
 
-    await typeInto(inputs[0], step.input_1, token);
+    await retypeInto(inputs[0], step.input_1, token);
     if (tutorialStale(token)) return;
 
     await tutorialWait(TUTORIAL_BEAT);
     if (tutorialStale(token)) return;
 
-    await typeInto(inputs[1], step.input_2, token);
+    await retypeInto(inputs[1], step.input_2, token);
     if (tutorialStale(token)) return;
 
-    showPhase(step, 'typed');
+    await showPhase(step, 'typed', token);
+    if (tutorialStale(token)) return;
 
     await tutorialWait(step.tips.typed ? TUTORIAL_PAUSE : TUTORIAL_BEAT);
     if (tutorialStale(token)) return;
 
     flashEnter(inputs[1]);
     runCalc();
+    fadeResult(false);
 
     await tutorialWait(TUTORIAL_BEAT);
     if (tutorialStale(token)) return;
 
-    showPhase(step, 'result');
+    await showPhase(step, 'result', token);
+    if (tutorialStale(token)) return;
 
     if (null == step.action) {
         return;
@@ -411,7 +579,8 @@ const runStep = async function (key) {
     if (tutorialStale(token)) return;
 
     runAction(step.action);
-    showPhase(step, 'after');
+
+    await showPhase(step, 'after', token);
 };
 
 
@@ -456,14 +625,26 @@ const startTutorial = function () {
     tutorialStep(0);
 };
 
-const stopTutorial = function () {
+const stopTutorial = async function () {
 
     if (!tutorialActive) {
         return;
     }
 
     tutorialCancel();
-    clearTips();
+
+    let leaving = tutorialTips;
+
+    tutorialTips = [];
+    tutorialLeaving = tutorialLeaving.concat(leaving);
+
+    leaving.forEach(tip => {
+        tip.el.classList.remove('show');
+        tip.target.classList.remove('tutorial-target');
+        retractArrow(tip);
+    });
+
+    window.setTimeout(purgeTips, TUTORIAL_FADE);
 
     tutorialActive = false;
     tutorialIndex = -1;
@@ -475,6 +656,7 @@ const stopTutorial = function () {
     inputs[0].readOnly = false;
     inputs[1].readOnly = false;
 
+    fadeResult(false);
     clearResult();
     updateCounter();
 
