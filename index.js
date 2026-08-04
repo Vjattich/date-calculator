@@ -190,7 +190,7 @@ const calcRes = function (inputs, referenceDate) {
         value_1 = elements[DATE_INPUT_NUMBER].value.trim(),
         value_2 = elements[ADD_INPUT_NUMBER].value.trim();
 
-    if (value_1.length === 0) {
+    if (0 === value_1.length) {
         return '';
     }
 
@@ -206,7 +206,7 @@ const calcRes = function (inputs, referenceDate) {
 
     LAST_ZONE = zoneLabel(fixedDate_1);
 
-    if (value_2.length === 0) {
+    if (0 === value_2.length) {
         return keepDate(fixedDate_1, value_1);
     }
 
