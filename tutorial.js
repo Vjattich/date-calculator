@@ -1,25 +1,30 @@
 'use strict';
 
-const TUTORIAL_TYPE_MS = 55;
-const TUTORIAL_GAP = 52;
-const TUTORIAL_PAUSE = 560;
-const TUTORIAL_BEAT = 260;
-const TUTORIAL_TIP_MS = 300;
-const TUTORIAL_LINE_MS = 200;
-const TUTORIAL_CONE_MS = 50;
-const TUTORIAL_CONE_LEN = 10;
-const TUTORIAL_LINE_OUT_MS = 100;
-const TUTORIAL_FADE = 240;
-const TUTORIAL_ERASE_MS = 26;
+//todo fix the text
+//reverse arrow animation on dissaper
+//cant touch inputs on turoial
 
-let tutorialActive = false;
-let tutorialIndex = -1;
-let tutorialVersion = 0;
-let tutorialTimers = [];
-let tutorialTips = [];
-let tutorialGeometry = '';
-let tutorialFollowId = null;
-let sleepWakers = [];
+const
+    TUTORIAL_TYPE_MS = 55,
+    TUTORIAL_GAP = 52,
+    TUTORIAL_PAUSE = 560,
+    TUTORIAL_BEAT = 260,
+    TUTORIAL_TIP_MS = 300,
+    TUTORIAL_LINE_MS = 200,
+    TUTORIAL_CONE_MS = 50,
+    TUTORIAL_CONE_LEN = 10,
+    TUTORIAL_LINE_OUT_MS = 100,
+    TUTORIAL_FADE = 240,
+    TUTORIAL_ERASE_MS = 26;
+
+let tutorialActive = false,
+    tutorialIndex = -1,
+    tutorialVersion = 0,
+    tutorialTimers = [],
+    tutorialTips = [],
+    tutorialGeometry = '',
+    tutorialFollowId = null,
+    sleepWakers = [];
 
 const tutorialReduced = function () {
     return false;
