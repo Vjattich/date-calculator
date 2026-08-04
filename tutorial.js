@@ -3,6 +3,9 @@
 //todo fix the text
 //reverse arrow animation on dissaper
 //cant touch inputs on turoial
+//step for same tooltip rerender
+//fix share button arrow and copy text
+//close the arrows when tutorial ends
 
 const
     TUTORIAL_TYPE_MS = 55,
@@ -67,7 +70,7 @@ const tutorialCancel = function () {
     let calendar = document.getElementById('calendar-holder');
 
     if (null != calendar) {
-        calendar.classList.toggle('hidden', true);
+        calendar.classList.add('hidden');
     }
 
     wakeSleeps();
@@ -177,8 +180,6 @@ const addTip = function (spec) {
 
     path.setAttribute('class', 'tutorial-arrow');
 
-    //the cone is its own element so it can be timed apart from the line;
-    //as a marker-end it would paint instantly, dash state or not
     let head = document.createElementNS('http://www.w3.org/2000/svg', 'path');
 
     head.setAttribute('class', 'tutorial-arrow tutorial-arrow-head');
@@ -741,20 +742,24 @@ const TUTORIAL_STEPS = {
         ], cancelled);
         if (cancelled()) return;
 
-        await sleep(TUTORIAL_PAUSE);
+        await sleep(1000);
         if (cancelled()) return;
 
         await type(1, 'now', cancelled);
         if (cancelled()) return;
 
-        await sleep(TUTORIAL_BEAT);
+        await sleep(1000);
         if (cancelled()) return;
 
         await type(2, 'next friday', cancelled);
         if (cancelled()) return;
 
-        await sleep(TUTORIAL_BEAT);
+        await sleep(2000);
         if (cancelled()) return;
+
+        hideTips()
+
+        await sleep(TUTORIAL_BEAT);
 
         submit();
 
@@ -791,7 +796,7 @@ const TUTORIAL_STEPS = {
         if (cancelled()) return;
 
         await showTips([
-            {target: 'share', side: 'right', text: 'Copies a link with both fields baked in'}
+            {target: 'copy-text', side: 'right', text: 'Copies a link with both fields baked in'}
         ], cancelled);
         if (cancelled()) return;
 
@@ -801,7 +806,7 @@ const TUTORIAL_STEPS = {
         showCopied('Copied!');
 
         await showTips([
-            {target: 'share', side: 'right', text: 'Whoever opens it lands on this exact answer'}
+            {target: 'copy-text', side: 'right', text: 'Whoever opens it lands on this exact answer'}
         ], cancelled);
     },
 
