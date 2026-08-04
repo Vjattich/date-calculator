@@ -1,3 +1,5 @@
+'use strict';
+
 const TUTORIAL_TYPE_MS = 55;
 const TUTORIAL_GAP = 52;
 const TUTORIAL_PAUSE = 560;
@@ -10,138 +12,62 @@ const TUTORIAL_LINE_OUT_MS = 280;
 const TUTORIAL_FADE = 240;
 const TUTORIAL_ERASE_MS = 26;
 
-const TUTORIAL_STEPS = {
-
-    'date-math': {
-        input_1: '22.11.1996',
-        input_2: '33y',
-        tips: {
-            start: [
-                {target: 'input-1', side: 'above', text: 'Any date, written the way you already write dates'},
-                {target: 'input-2', side: 'right', text: 'How far to jump: 33y, 2M, 10 days, 3 sec'}
-            ],
-            typed: [
-                {target: 'input-2', side: 'below', text: 'Cursor in either field, then Enter'}
-            ],
-            result: [
-                {target: 'result', side: 'below', text: 'The exact date, weekday and month included'}
-            ]
-        }
-    },
-
-    'subtract': {
-        input_1: '22.11.1996',
-        input_2: '-4 weeks 4 days',
-        tips: {
-            start: [
-                {target: 'input-2', side: 'right', text: 'Stack units together. A minus turns the whole thing backwards'}
-            ],
-            result: [
-                {target: 'result', side: 'below', text: '4 weeks and 4 days earlier'}
-            ]
-        }
-    },
-
-    'duration': {
-        input_1: '22.11.1996',
-        input_2: '18.11.2115',
-        tips: {
-            start: [
-                {target: 'input-2', side: 'right', text: 'Put a second date here instead of a unit'}
-            ],
-            result: [
-                {target: 'result', side: 'below', text: 'Now the answer is the distance between them'}
-            ]
-        }
-    },
-
-    'total-days': {
-        input_1: '10.01.2026',
-        input_2: '10.02.2026',
-        action: 'click-result',
-        tips: {
-            result: [
-                {target: 'result', side: 'below', text: 'Click a duration to also get it in plain days'}
-            ],
-            after: [
-                {target: 'result', side: 'below', text: 'Handy when months and weeks only get in the way'}
-            ]
-        }
-    },
-
-    'words': {
-        input_1: 'now',
-        input_2: 'next friday',
-        tips: {
-            start: [
-                {target: 'input-1', side: 'above', text: 'Plain words work too: now, today, tomorrow'},
-                {target: 'input-2', side: 'right', text: 'next friday, last monday, in 3 weeks'}
-            ],
-            result: [
-                {target: 'timezone', side: 'below', text: 'Everything is counted in your own timezone, shown right here'}
-            ]
-        }
-    },
-
-    'share': {
-        input_1: '22.11.1996',
-        input_2: '33y',
-        action: 'flash-copy',
-        tips: {
-            result: [
-                {target: 'share', side: 'right', text: 'Copies a link with both fields baked in'}
-            ],
-            after: [
-                {target: 'share', side: 'right', text: 'Whoever opens it lands on this exact answer'}
-            ]
-        }
-    },
-
-    'calendar': {
-        input_1: 'today',
-        input_2: '111d',
-        tips: {
-            result: [
-                {target: 'calendar', side: 'right', text: 'When the answer is a date, drop it straight into Google Calendar'},
-                {target: 'result', side: 'below', text: 'It only shows up for dates, never for durations'}
-            ]
-        }
-    }
-
-};
-
-const TUTORIAL_ORDER = ['date-math', 'subtract', 'duration', 'total-days', 'words', 'share', 'calendar'];
-
 let tutorialActive = false;
 let tutorialIndex = -1;
-let tutorialToken = 0;
+let tutorialVersion = 0;
 let tutorialTimers = [];
 let tutorialTips = [];
 let tutorialGeometry = '';
 let tutorialFollowId = null;
+let sleepWakers = [];
 
 const tutorialReduced = function () {
     return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 };
 
-const tutorialWait = function (ms) {
+//a cancelled step has to resume so it can see it is stale and return - a sleep
+//whose timer was simply cleared would leave it suspended forever
+const wakeSleeps = function () {
+
+    let waking = sleepWakers;
+
+    sleepWakers = [];
+    waking.forEach(wake => wake());
+};
+
+const sleep = function (ms) {
+
     return new Promise(resolve => {
-        tutorialTimers.push(window.setTimeout(resolve, tutorialReduced() ? Math.min(ms, 120) : ms));
+
+        let timer = null;
+
+        const done = function () {
+            window.clearTimeout(timer);
+            sleepWakers = sleepWakers.filter(w => w !== done);
+            resolve();
+        };
+
+        timer = window.setTimeout(done, tutorialReduced() ? Math.min(ms, 120) : ms);
+        sleepWakers.push(done);
     });
 };
 
-const tutorialStale = function (token) {
-    return token !== tutorialToken;
-};
-
 const tutorialCancel = function () {
-    tutorialToken = tutorialToken + 1;
+
+    tutorialVersion = tutorialVersion + 1;
+
     tutorialTimers.forEach(id => window.clearTimeout(id));
     tutorialTimers = [];
+
+    wakeSleeps();
 };
 
 const tutorialInputs = function () {
     return Array.from(document.getElementsByClassName('input'));
+};
+
+const field = function (n) {
+    return tutorialInputs()[n - 1];
 };
 
 const tutorialTarget = function (name) {
@@ -167,7 +93,6 @@ const tutorialTarget = function (name) {
     return document.getElementById(name);
 };
 
-
 const tutorialLayer = function () {
     return document.getElementById('tutorial-layer');
 };
@@ -185,14 +110,6 @@ const tutorialScale = function () {
     return box.width && layer.offsetWidth ? box.width / layer.offsetWidth : 1;
 };
 
-
-const purgeTips = function () {
-
-    Array.from(document.querySelectorAll('.tutorial-tip, .tutorial-arrow')).forEach(el => el.remove());
-    Array.from(document.querySelectorAll('.tutorial-target')).forEach(el => el.classList.remove('tutorial-target'));
-
-    tutorialTips = [];
-};
 
 //fire and forget: each leaving tip owns the timer that removes it, so a cancel
 //in the middle of a step can never strand it or yank it out mid fade
@@ -507,94 +424,12 @@ const tutorialFrame = function () {
     return new Promise(resolve => window.requestAnimationFrame(resolve));
 };
 
-const showPhase = async function (step, phase, token) {
 
-    let specs = step.tips[phase];
+/* ---------- what a step script can call ---------- */
 
-    if (null == specs) {
-        return;
-    }
-
+const clean = function () {
     hideTips();
-    specs.forEach(addTip);
-
-    //measure on one frame, paint the start state, reveal on the next
-    await tutorialFrame();
-
-    if (tutorialStale(token)) {
-        return;
-    }
-
-    layoutTips(true);
-
-    await tutorialFrame();
-
-    if (tutorialStale(token)) {
-        return;
-    }
-
-    revealTips();
-};
-
-
-const eraseInput = async function (input, token) {
-
-    input.classList.add('tutorial-typing');
-
-    while (input.value.length > 0) {
-
-        if (tutorialStale(token)) {
-            input.classList.remove('tutorial-typing');
-            return;
-        }
-
-        input.value = input.value.slice(0, -1);
-        await tutorialWait(TUTORIAL_ERASE_MS);
-    }
-
-    input.classList.remove('tutorial-typing');
-};
-
-//steps often share a field, retyping an identical value just looks like a glitch
-const retypeInto = async function (input, text, token) {
-
-    if (input.value === text) {
-        return;
-    }
-
-    await eraseInput(input, token);
-
-    if (tutorialStale(token)) {
-        return;
-    }
-
-    await typeInto(input, text, token);
-};
-
-const typeInto = async function (input, text, token) {
-
-    input.value = '';
-    input.classList.add('tutorial-typing');
-
-    for (let i = 0; i < text.length; i++) {
-
-        if (tutorialStale(token)) {
-            input.classList.remove('tutorial-typing');
-            return;
-        }
-
-        input.value = text.slice(0, i + 1);
-        await tutorialWait(TUTORIAL_TYPE_MS);
-    }
-
-    input.classList.remove('tutorial-typing');
-};
-
-const flashEnter = function (input) {
-
-    input.classList.add('tutorial-enter');
-
-    tutorialTimers.push(window.setTimeout(() => input.classList.remove('tutorial-enter'), 420));
+    fadeResult(true);
 };
 
 const fadeResult = function (out) {
@@ -606,89 +441,382 @@ const fadeResult = function (out) {
     }
 };
 
-const runAction = function (name) {
+const eraseInput = async function (input, cancelled) {
 
-    if (name === 'click-result') {
-        document.getElementById('result').click();
+    input.classList.add('tutorial-typing');
+
+    while (input.value.length > 0) {
+
+        if (cancelled()) {
+            input.classList.remove('tutorial-typing');
+            return;
+        }
+
+        input.value = input.value.slice(0, -1);
+        await sleep(TUTORIAL_ERASE_MS);
+    }
+
+    input.classList.remove('tutorial-typing');
+};
+
+const typeInto = async function (input, text, cancelled) {
+
+    input.value = '';
+    input.classList.add('tutorial-typing');
+
+    for (let i = 0; i < text.length; i++) {
+
+        if (cancelled()) {
+            input.classList.remove('tutorial-typing');
+            return;
+        }
+
+        input.value = text.slice(0, i + 1);
+        await sleep(TUTORIAL_TYPE_MS);
+    }
+
+    input.classList.remove('tutorial-typing');
+};
+
+//steps often share a field, retyping an identical value just looks like a glitch
+const type = async function (n, text, cancelled) {
+
+    let input = field(n);
+
+    if (input.value === text) {
         return;
     }
 
-    if (name === 'flash-copy') {
-        showCopied('Copied!');
+    await eraseInput(input, cancelled);
+
+    if (cancelled()) {
+        return;
     }
+
+    await typeInto(input, text, cancelled);
 };
 
-const runStep = async function (key) {
+//erasing starts immediately so a click never looks like a freeze
+const clearFields = async function (cancelled) {
 
-    tutorialCancel();
+    let inputs = tutorialInputs();
 
-    let token = tutorialToken,
-        step = TUTORIAL_STEPS[key],
-        inputs = tutorialInputs();
-
-    inputs[0].readOnly = true;
-    inputs[1].readOnly = true;
-
-    updateCounter();
-
-    fadeResult(true);
-    hideTips();
-
-    //erasing starts immediately so a click never looks like a freeze
     await Promise.all([
-        eraseInput(inputs[1], token),
-        tutorialWait(TUTORIAL_FADE)
+        eraseInput(inputs[1], cancelled),
+        sleep(TUTORIAL_FADE)
     ]);
-    if (tutorialStale(token)) return;
+
+    if (cancelled()) {
+        return;
+    }
 
     clearResult();
 
-    await eraseInput(inputs[0], token);
-    if (tutorialStale(token)) return;
+    await eraseInput(inputs[0], cancelled);
+};
 
-    await showPhase(step, 'start', token);
-    if (tutorialStale(token)) return;
+const showTips = async function (specs, cancelled) {
 
-    await tutorialWait(step.tips.start ? TUTORIAL_PAUSE : TUTORIAL_BEAT);
-    if (tutorialStale(token)) return;
+    hideTips();
+    specs.forEach(addTip);
 
-    await retypeInto(inputs[0], step.input_1, token);
-    if (tutorialStale(token)) return;
+    //measure on one frame, paint the start state, reveal on the next
+    await tutorialFrame();
 
-    await tutorialWait(TUTORIAL_BEAT);
-    if (tutorialStale(token)) return;
-
-    await retypeInto(inputs[1], step.input_2, token);
-    if (tutorialStale(token)) return;
-
-    await showPhase(step, 'typed', token);
-    if (tutorialStale(token)) return;
-
-    await tutorialWait(step.tips.typed ? TUTORIAL_PAUSE : TUTORIAL_BEAT);
-    if (tutorialStale(token)) return;
-
-    flashEnter(inputs[1]);
-    runCalc();
-    fadeResult(false);
-
-    await tutorialWait(TUTORIAL_BEAT);
-    if (tutorialStale(token)) return;
-
-    await showPhase(step, 'result', token);
-    if (tutorialStale(token)) return;
-
-    if (null == step.action) {
+    if (cancelled()) {
         return;
     }
 
-    await tutorialWait(TUTORIAL_PAUSE * 1.6);
-    if (tutorialStale(token)) return;
+    layoutTips(true);
 
-    runAction(step.action);
+    await tutorialFrame();
 
-    await showPhase(step, 'after', token);
+    if (cancelled()) {
+        return;
+    }
+
+    revealTips();
 };
 
+const flashEnter = function (input) {
+
+    input.classList.add('tutorial-enter');
+
+    tutorialTimers.push(window.setTimeout(() => input.classList.remove('tutorial-enter'), 420));
+};
+
+const submit = function () {
+    flashEnter(field(2));
+    runCalc();
+    fadeResult(false);
+};
+
+
+/* ---------- the steps ---------- */
+
+/**
+ * The order of the steps. tutorialIndex is a 0-based index into this array,
+ * so inserting a step is just inserting its name here.
+ */
+const TUTORIAL_ORDER = ['dateMath', 'subtract', 'duration', 'totalDays', 'words', 'share', 'calendar'];
+
+const TUTORIAL_STEPS = {
+
+    async dateMath(cancelled) {
+        await clearFields(cancelled);
+        if (cancelled()) return;
+
+        await showTips([
+            {target: 'input-1', side: 'above', text: 'Any date, written the way you already write dates'},
+            {target: 'input-2', side: 'right', text: 'How far to jump: 33y, 2M, 10 days, 3 sec'}
+        ], cancelled);
+        if (cancelled()) return;
+
+        await sleep(TUTORIAL_PAUSE);
+        if (cancelled()) return;
+
+        await type(1, '22.11.1996', cancelled);
+        if (cancelled()) return;
+
+        await sleep(TUTORIAL_BEAT);
+        if (cancelled()) return;
+
+        await type(2, '33y', cancelled);
+        if (cancelled()) return;
+
+        await showTips([
+            {target: 'input-2', side: 'below', text: 'Cursor in either field, then Enter'}
+        ], cancelled);
+        if (cancelled()) return;
+
+        await sleep(TUTORIAL_PAUSE);
+        if (cancelled()) return;
+
+        submit();
+
+        await sleep(TUTORIAL_BEAT);
+        if (cancelled()) return;
+
+        await showTips([
+            {target: 'result', side: 'below', text: 'The exact date, weekday and month included'}
+        ], cancelled);
+    },
+
+    async subtract(cancelled) {
+        await clearFields(cancelled);
+        if (cancelled()) return;
+
+        await showTips([
+            {target: 'input-2', side: 'right', text: 'Stack units together. A minus turns the whole thing backwards'}
+        ], cancelled);
+        if (cancelled()) return;
+
+        await sleep(TUTORIAL_PAUSE);
+        if (cancelled()) return;
+
+        await type(1, '22.11.1996', cancelled);
+        if (cancelled()) return;
+
+        await sleep(TUTORIAL_BEAT);
+        if (cancelled()) return;
+
+        await type(2, '-4 weeks 4 days', cancelled);
+        if (cancelled()) return;
+
+        await sleep(TUTORIAL_BEAT);
+        if (cancelled()) return;
+
+        submit();
+
+        await sleep(TUTORIAL_BEAT);
+        if (cancelled()) return;
+
+        await showTips([
+            {target: 'result', side: 'below', text: '4 weeks and 4 days earlier'}
+        ], cancelled);
+    },
+
+    async duration(cancelled) {
+        await clearFields(cancelled);
+        if (cancelled()) return;
+
+        await showTips([
+            {target: 'input-2', side: 'right', text: 'Put a second date here instead of a unit'}
+        ], cancelled);
+        if (cancelled()) return;
+
+        await sleep(TUTORIAL_PAUSE);
+        if (cancelled()) return;
+
+        await type(1, '22.11.1996', cancelled);
+        if (cancelled()) return;
+
+        await sleep(TUTORIAL_BEAT);
+        if (cancelled()) return;
+
+        await type(2, '18.11.2115', cancelled);
+        if (cancelled()) return;
+
+        await sleep(TUTORIAL_BEAT);
+        if (cancelled()) return;
+
+        submit();
+
+        await sleep(TUTORIAL_BEAT);
+        if (cancelled()) return;
+
+        await showTips([
+            {target: 'result', side: 'below', text: 'Now the answer is the distance between them'}
+        ], cancelled);
+    },
+
+    async totalDays(cancelled) {
+        await clearFields(cancelled);
+        if (cancelled()) return;
+
+        await sleep(TUTORIAL_BEAT);
+        if (cancelled()) return;
+
+        await type(1, '10.01.2026', cancelled);
+        if (cancelled()) return;
+
+        await sleep(TUTORIAL_BEAT);
+        if (cancelled()) return;
+
+        await type(2, '10.02.2026', cancelled);
+        if (cancelled()) return;
+
+        await sleep(TUTORIAL_BEAT);
+        if (cancelled()) return;
+
+        submit();
+
+        await sleep(TUTORIAL_BEAT);
+        if (cancelled()) return;
+
+        await showTips([
+            {target: 'result', side: 'below', text: 'Click a duration to also get it in plain days'}
+        ], cancelled);
+        if (cancelled()) return;
+
+        await sleep(TUTORIAL_PAUSE * 1.6);
+        if (cancelled()) return;
+
+        document.getElementById('result').click();
+
+        await showTips([
+            {target: 'result', side: 'below', text: 'Handy when months and weeks only get in the way'}
+        ], cancelled);
+    },
+
+    async words(cancelled) {
+        await clearFields(cancelled);
+        if (cancelled()) return;
+
+        await showTips([
+            {target: 'input-1', side: 'above', text: 'Plain words work too: now, today, tomorrow'},
+            {target: 'input-2', side: 'right', text: 'next friday, last monday, in 3 weeks'}
+        ], cancelled);
+        if (cancelled()) return;
+
+        await sleep(TUTORIAL_PAUSE);
+        if (cancelled()) return;
+
+        await type(1, 'now', cancelled);
+        if (cancelled()) return;
+
+        await sleep(TUTORIAL_BEAT);
+        if (cancelled()) return;
+
+        await type(2, 'next friday', cancelled);
+        if (cancelled()) return;
+
+        await sleep(TUTORIAL_BEAT);
+        if (cancelled()) return;
+
+        submit();
+
+        await sleep(TUTORIAL_BEAT);
+        if (cancelled()) return;
+
+        await showTips([
+            {target: 'timezone', side: 'below', text: 'Everything is counted in your own timezone, shown right here'}
+        ], cancelled);
+    },
+
+    async share(cancelled) {
+        await clearFields(cancelled);
+        if (cancelled()) return;
+
+        await sleep(TUTORIAL_BEAT);
+        if (cancelled()) return;
+
+        await type(1, '22.11.1996', cancelled);
+        if (cancelled()) return;
+
+        await sleep(TUTORIAL_BEAT);
+        if (cancelled()) return;
+
+        await type(2, '33y', cancelled);
+        if (cancelled()) return;
+
+        await sleep(TUTORIAL_BEAT);
+        if (cancelled()) return;
+
+        submit();
+
+        await sleep(TUTORIAL_BEAT);
+        if (cancelled()) return;
+
+        await showTips([
+            {target: 'share', side: 'right', text: 'Copies a link with both fields baked in'}
+        ], cancelled);
+        if (cancelled()) return;
+
+        await sleep(TUTORIAL_PAUSE * 1.6);
+        if (cancelled()) return;
+
+        showCopied('Copied!');
+
+        await showTips([
+            {target: 'share', side: 'right', text: 'Whoever opens it lands on this exact answer'}
+        ], cancelled);
+    },
+
+    async calendar(cancelled) {
+        await clearFields(cancelled);
+        if (cancelled()) return;
+
+        await sleep(TUTORIAL_BEAT);
+        if (cancelled()) return;
+
+        await type(1, 'today', cancelled);
+        if (cancelled()) return;
+
+        await sleep(TUTORIAL_BEAT);
+        if (cancelled()) return;
+
+        await type(2, '111d', cancelled);
+        if (cancelled()) return;
+
+        await sleep(TUTORIAL_BEAT);
+        if (cancelled()) return;
+
+        submit();
+
+        await sleep(TUTORIAL_BEAT);
+        if (cancelled()) return;
+
+        await showTips([
+            {target: 'calendar', side: 'right', text: 'When the answer is a date, drop it straight into Google Calendar'},
+            {target: 'result', side: 'below', text: 'It only shows up for dates, never for durations'}
+        ], cancelled);
+    }
+
+};
+
+
+/* ---------- driving them ---------- */
 
 const updateCounter = function () {
 
@@ -701,7 +829,42 @@ const updateCounter = function () {
     counter.textContent = tutorialActive ? (tutorialIndex + 1) + ' / ' + TUTORIAL_ORDER.length : '';
 };
 
-const tutorialStep = function (index) {
+const runTutorialStep = async function (key, version) {
+
+    const cancelled = () => version !== tutorialVersion;
+
+    if (cancelled()) {
+        return;
+    }
+
+    let step = TUTORIAL_STEPS[key],
+        inputs = tutorialInputs();
+
+    if (null == step) {
+        stopTutorial();
+        return;
+    }
+
+    inputs[0].readOnly = true;
+    inputs[1].readOnly = true;
+
+    clean();
+    updateCounter();
+
+    await step(cancelled);
+};
+
+//the timeout lets the outgoing step resume, see it is stale and unwind first
+const advanceTutorial = function (key) {
+
+    tutorialCancel();
+
+    let version = tutorialVersion;
+
+    window.setTimeout(() => runTutorialStep(key, version), 0);
+};
+
+const goToStep = function (index) {
 
     if (index < 0) {
         return;
@@ -713,7 +876,7 @@ const tutorialStep = function (index) {
     }
 
     tutorialIndex = index;
-    runStep(TUTORIAL_ORDER[index]);
+    advanceTutorial(TUTORIAL_ORDER[index]);
 };
 
 const startTutorial = function () {
@@ -733,10 +896,10 @@ const startTutorial = function () {
     document.getElementsByClassName('next')[0].classList.remove('hidden');
     document.getElementsByClassName('prev')[0].classList.remove('hidden');
 
-    tutorialStep(0);
+    goToStep(0);
 };
 
-const stopTutorial = async function () {
+const stopTutorial = function () {
 
     if (!tutorialActive) {
         return;
@@ -783,8 +946,8 @@ const toggleTutorial = function () {
 window.addEventListener('load', function () {
 
     document.getElementsByClassName('question-mark')[0].addEventListener('click', toggleTutorial);
-    document.getElementsByClassName('next')[0].addEventListener('click', () => tutorialStep(tutorialIndex + 1));
-    document.getElementsByClassName('prev')[0].addEventListener('click', () => tutorialStep(tutorialIndex - 1));
+    document.getElementsByClassName('next')[0].addEventListener('click', () => goToStep(tutorialIndex + 1));
+    document.getElementsByClassName('prev')[0].addEventListener('click', () => goToStep(tutorialIndex - 1));
 
     window.addEventListener('resize', () => {
         if (tutorialActive) {
@@ -803,11 +966,11 @@ window.addEventListener('load', function () {
         }
 
         if (e.key === 'ArrowRight') {
-            tutorialStep(tutorialIndex + 1);
+            goToStep(tutorialIndex + 1);
         }
 
         if (e.key === 'ArrowLeft') {
-            tutorialStep(tutorialIndex - 1);
+            goToStep(tutorialIndex - 1);
         }
     });
 });
