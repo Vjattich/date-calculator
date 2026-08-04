@@ -5,10 +5,10 @@ const TUTORIAL_GAP = 52;
 const TUTORIAL_PAUSE = 560;
 const TUTORIAL_BEAT = 260;
 const TUTORIAL_TIP_MS = 300;
-const TUTORIAL_LINE_MS = 420;
-const TUTORIAL_CONE_MS = 170;
+const TUTORIAL_LINE_MS = 200;
+const TUTORIAL_CONE_MS = 50;
 const TUTORIAL_CONE_LEN = 10;
-const TUTORIAL_LINE_OUT_MS = 280;
+const TUTORIAL_LINE_OUT_MS = 100;
 const TUTORIAL_FADE = 240;
 const TUTORIAL_ERASE_MS = 26;
 
@@ -572,7 +572,7 @@ const TUTORIAL_STEPS = {
         ], cancelled);
         if (cancelled()) return;
 
-        await sleep(2500);
+        await sleep(2000);
         if (cancelled()) return;
 
         await type(1, '22.11.1996', cancelled);
@@ -584,19 +584,22 @@ const TUTORIAL_STEPS = {
         await type(2, '33y', cancelled);
         if (cancelled()) return;
 
-        await sleep(2000);
+        await sleep(1000);
 
         await showTips([
             {target: 'input-2', side: 'below', text: 'Cursor in either field, then Enter'}
         ], cancelled);
         if (cancelled()) return;
 
-        await sleep(3000);
-        if (cancelled()) return;
+        await sleep(2000);
+
+        hideTips();
+
+        await sleep(500);
 
         submit();
 
-        await sleep(1500);
+        await sleep(1000);
         if (cancelled()) return;
 
         await showTips([
@@ -895,8 +898,8 @@ const startTutorial = function () {
         tutorialFollowId = window.requestAnimationFrame(followTips);
     }
 
-    document.getElementsByClassName('next')[0].classList.remove('hidden');
-    document.getElementsByClassName('prev')[0].classList.remove('hidden');
+    document.getElementById('guideNext').style.display = 'block';
+    document.getElementById('guidePrev').style.display = 'block';
 
     goToStep(0);
 };
@@ -931,8 +934,8 @@ const stopTutorial = function () {
     updateCounter();
 
     document.body.classList.remove('tutorial-on');
-    document.getElementsByClassName('next')[0].classList.add('hidden');
-    document.getElementsByClassName('prev')[0].classList.add('hidden');
+    document.getElementById('guideNext').style.display = 'block';
+    document.getElementById('guidePrev').style.display = 'block';
 };
 
 const toggleTutorial = function () {
@@ -948,8 +951,8 @@ const toggleTutorial = function () {
 window.addEventListener('load', function () {
 
     document.getElementsByClassName('question-mark')[0].addEventListener('click', toggleTutorial);
-    document.getElementsByClassName('next')[0].addEventListener('click', () => goToStep(tutorialIndex + 1));
-    document.getElementsByClassName('prev')[0].addEventListener('click', () => goToStep(tutorialIndex - 1));
+    document.getElementById('guideNext').addEventListener('click', () => goToStep(tutorialIndex + 1));
+    document.getElementById('guidePrev').addEventListener('click', () => goToStep(tutorialIndex - 1));
 
     window.addEventListener('resize', () => {
         if (tutorialActive) {
