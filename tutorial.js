@@ -59,6 +59,12 @@ const tutorialCancel = function () {
     tutorialTimers.forEach(id => window.clearTimeout(id));
     tutorialTimers = [];
 
+    let calendar = document.getElementById('calendar-holder');
+
+    if (null != calendar) {
+        calendar.classList.toggle('hidden', true);
+    }
+
     wakeSleeps();
 };
 
@@ -627,8 +633,11 @@ const TUTORIAL_STEPS = {
 
         await type(2, '-4 weeks 4 days', cancelled);
         if (cancelled()) return;
+        await sleep(2000);
 
+        hideTips();
         await sleep(TUTORIAL_BEAT);
+
         if (cancelled()) return;
 
         submit();
@@ -662,8 +671,11 @@ const TUTORIAL_STEPS = {
         await type(2, '18.11.2115', cancelled);
         if (cancelled()) return;
 
-        await sleep(TUTORIAL_BEAT);
+        await sleep(1500);
         if (cancelled()) return;
+
+        hideTips();
+        await sleep(TUTORIAL_BEAT);
 
         submit();
 
@@ -704,7 +716,7 @@ const TUTORIAL_STEPS = {
         ], cancelled);
         if (cancelled()) return;
 
-        await sleep(TUTORIAL_PAUSE * 1.6);
+        await sleep(2000);
         if (cancelled()) return;
 
         document.getElementById('result').click();
