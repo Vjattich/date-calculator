@@ -131,11 +131,6 @@ const dismissTips = function (leaving) {
 
         tip.arms.forEach(arm => {
 
-            //tips can share a target, the pulse belongs to the last one standing
-            if (!tutorialTips.some(rest => rest.arms.some(other => other.target === arm.target))) {
-                arm.target.classList.remove('tutorial-target');
-            }
-
             //1. the cone goes
             arm.head.style.transition = 'opacity ' + TUTORIAL_CONE_MS + 'ms ease-in';
             arm.head.style.opacity = '0';
@@ -171,8 +166,8 @@ const hideTips = function () {
     dismissTips(leaving);
 };
 
-//the key cap is a system font sitting inside a cursive bubble, so it is its own
-//element rather than part of the text that gets typed
+//the key cap is its own element rather than part of the text that gets typed,
+//so it keeps its own border and shadow styling
 const setKey = function (tip, key) {
 
     if (tip.key === (key || null)) {
@@ -223,8 +218,6 @@ const addTip = function (spec) {
 
         tutorialArrows().appendChild(path);
         tutorialArrows().appendChild(head);
-
-        target.classList.add('tutorial-target');
 
         arms.push({target: target, path: path, head: head, length: 0});
     });
@@ -600,39 +593,30 @@ const fadeResult = function (out) {
 
 const eraseInput = async function (input, cancelled) {
 
-    input.classList.add('tutorial-typing');
-
     while (input.value.length > 0) {
 
         if (cancelled()) {
-            input.classList.remove('tutorial-typing');
             return;
         }
 
         input.value = input.value.slice(0, -1);
         await sleep(TUTORIAL_ERASE_MS);
     }
-
-    input.classList.remove('tutorial-typing');
 };
 
 const typeInto = async function (input, text, cancelled) {
 
     input.value = '';
-    input.classList.add('tutorial-typing');
 
     for (let i = 0; i < text.length; i++) {
 
         if (cancelled()) {
-            input.classList.remove('tutorial-typing');
             return;
         }
 
         input.value = text.slice(0, i + 1);
         await sleep(TUTORIAL_TYPE_MS);
     }
-
-    input.classList.remove('tutorial-typing');
 };
 
 //steps often share a field, retyping an identical value just looks like a glitch
