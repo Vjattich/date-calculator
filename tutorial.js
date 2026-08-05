@@ -98,6 +98,10 @@ const tutorialTarget = function (name) {
     return document.getElementById(name);
 };
 
+const tutorialMobile = function () {
+    return window.matchMedia('(max-width: 768px)').matches;
+};
+
 const tutorialLayer = function () {
     return document.getElementById('tutorial-layer');
 };
@@ -189,7 +193,7 @@ const setKey = function (tip, key) {
     let cap = document.createElement('span');
 
     cap.className = 'tutorial-key';
-    cap.textContent = window.matchMedia('(max-width: 768px)').matches ? '\u21B5' : tip.key;
+    cap.textContent = tutorialMobile() ? '\u21B5' : tip.key;
 
     tip.el.appendChild(cap);
     tip.keyEl = cap;
@@ -383,6 +387,31 @@ const tipBoxFor = function (tip, box, w, h, gap, vw, vh) {
     return {left: x, top: y, right: x + w, bottom: y + h, width: w, height: h};
 };
 
+//on a phone the inputs stack, so a tip anchored to one of them lands between
+//the two. There are no arrows to follow either - the pulse is what ties a tip to
+//its target - so a tip sits clear of the whole block instead: above the fields,
+//or below the answer if that is what it is talking about
+const mobileTipBox = function (tip, w, h, gap, vw, vh) {
+
+    //on mobile the calendar button moves down beside the answer, so its tip
+    //belongs down there with it
+    let down = ['result', 'timezone', 'calendar'].some(id => tip.name.indexOf(id) >= 0),
+        anchor = document.getElementsByClassName(down ? 'result' : 'input-row')[0];
+
+    if (null == anchor) {
+        return null;
+    }
+
+    let box = anchor.getBoundingClientRect(),
+        x = box.left + box.width / 2 - w / 2,
+        y = down ? box.bottom + gap : box.top - gap - h;
+
+    x = Math.max(8, Math.min(x, vw - w - 8));
+    y = Math.max(8, Math.min(y, vh - h - 8));
+
+    return {left: x, top: y, right: x + w, bottom: y + h, width: w, height: h};
+};
+
 const arrowFor = function (tipBox, targetBox) {
 
     let tipCx = tipBox.left + tipBox.width / 2,
@@ -478,7 +507,8 @@ const layoutTips = function () {
     tutorialTips.forEach((tip, i) => {
 
         let m = measured[i],
-            tipBox = tipBoxFor(tip, m.box, m.w, m.h, gap, vw, vh);
+            tipBox = (tutorialMobile() ? mobileTipBox(tip, m.w, m.h, gap, vw, vh) : null) ||
+                tipBoxFor(tip, m.box, m.w, m.h, gap, vw, vh);
 
         tip.el.style.left = (tipBox.left / scale) + 'px';
         tip.el.style.top = (tipBox.top / scale) + 'px';
@@ -814,6 +844,38 @@ const pressKey = async function (cancelled) {
     }
 };
 
+//the icon inside the button is what carries the scale transition, the button
+//itself is a bare wrapper
+const pressButton = async function (name, cancelled) {
+
+    let button = tutorialTarget(name);
+
+    if (null == button) {
+        return;
+    }
+
+    let icon = button.firstElementChild || button;
+
+    for (let i = 0; i < 2; i++) {
+
+        icon.classList.add('tutorial-press');
+
+        await sleep(180);
+
+        icon.classList.remove('tutorial-press');
+
+        if (cancelled()) {
+            return;
+        }
+
+        await sleep(240);
+
+        if (cancelled()) {
+            return;
+        }
+    }
+};
+
 //steps hand their state to the next one, so a step that only talks about the
 //answer has to put one there when it is jumped into out of order
 const ensureResult = async function (cancelled) {
@@ -1037,7 +1099,13 @@ const TUTORIAL_STEPS = {
         await sleep(TUTORIAL_PAUSE * 1.6);
         if (cancelled()) return;
 
-        showCopied('Copied!');
+        await pressButton('share', cancelled);
+        if (cancelled()) return;
+
+        //on a phone the button sits under the thumb and Copied! has nowhere to go
+        if (!tutorialMobile()) {
+            showCopied('Copied!');
+        }
     },
 
     //the calendar button only exists while the answer is a date, so this step
@@ -1063,6 +1131,12 @@ const TUTORIAL_STEPS = {
         await showTips([
             {target: 'calendar', side: 'right', text: 'Or set the date in your calendar'}
         ], cancelled);
+        if (cancelled()) return;
+
+        await sleep(TUTORIAL_PAUSE * 1.6);
+        if (cancelled()) return;
+
+        await pressButton('calendar', cancelled);
     }
 
 };

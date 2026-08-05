@@ -190,6 +190,10 @@
             box-shadow: 0 0 0 #8f8f8f;
         }
 
+        .share.tutorial-press, .calendar.tutorial-press {
+            transform: scale(0.85);
+        }
+
         #icon-x {
             display: none;
         }
@@ -470,6 +474,10 @@
                 font-size: 12px;
             }
 
+            #tutorial-arrows {
+                display: none;
+            }
+
             .share-holder, .calendar-holder {
                 top: 0;
                 left: auto;
@@ -482,8 +490,10 @@
                 margin-top: 0;
             }
 
+            /* down beside the answer it belongs to, not stacked under the share icon */
             .calendar-holder {
-                margin-top: 1.8em;
+                top: 100%;
+                margin-top: 1.3em;
             }
 
             .copy-text {

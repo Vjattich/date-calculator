@@ -164,9 +164,8 @@ const zoneLabel = function (momentDate) {
 
 //if time without clockunit don't need to render it
 const hasClockUnit = function (momentDate) {
-    return 0 !== (momentDate.hours() || momentDate.minutes() /*|| momentDate.seconds()*/);
-};
-
+    return 0 !== (momentDate.hours() || momentDate.minutes() || momentDate.seconds());
+}
 const formatMoment = function (momentDate) {
     return momentDate.format(hasClockUnit(momentDate) ? CLOCK_PATTERN : DATE_PATTERN);
 };
