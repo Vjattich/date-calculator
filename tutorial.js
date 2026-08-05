@@ -1,12 +1,5 @@
 'use strict';
 
-//todo fix the text
-//reverse arrow animation on dissaper
-//cant touch inputs on turoial
-//step for same tooltip rerender
-//fix share button arrow and copy text
-//close the arrows when tutorial ends
-
 const
     TUTORIAL_TYPE_MS = 55,
     TUTORIAL_GAP = 52,
@@ -18,7 +11,8 @@ const
     TUTORIAL_CONE_LEN = 10,
     TUTORIAL_LINE_OUT_MS = 100,
     TUTORIAL_FADE = 240,
-    TUTORIAL_ERASE_MS = 26;
+    TUTORIAL_ERASE_MS = 26,
+    TUTORIAL_SWAP_MS = 140;
 
 let tutorialActive = false,
     tutorialIndex = -1,
@@ -28,10 +22,6 @@ let tutorialActive = false,
     tutorialGeometry = '',
     tutorialFollowId = null,
     sleepWakers = [];
-
-const tutorialReduced = function () {
-    return false;
-};
 
 //a cancelled step has to resume so it can see it is stale and return - a sleep
 //whose timer was simply cleared would leave it suspended forever
@@ -127,27 +117,26 @@ const tutorialScale = function () {
 
 //fire and forget: each leaving tip owns the timer that removes it, so a cancel
 //in the middle of a step can never strand it or yank it out mid fade
-const hideTips = function () {
-
-    let leaving = tutorialTips;
-
-    tutorialTips = [];
+const dismissTips = function (leaving) {
 
     leaving.forEach(tip => {
 
         tip.timers.forEach(id => window.clearTimeout(id));
         tip.timers = [];
 
-        tip.target.classList.remove('tutorial-target');
+        //two tips can share a target, the pulse belongs to the last one standing
+        if (!tutorialTips.some(rest => rest.target === tip.target)) {
+            tip.target.classList.remove('tutorial-target');
+        }
 
         //1. the cone goes
         tip.head.style.transition = 'opacity ' + TUTORIAL_CONE_MS + 'ms ease-in';
         tip.head.style.opacity = '0';
 
-        //2. the line un-draws, tail first, arrowhead last
+        //2. the line un-draws backwards, from the cone down to the tooltip
         window.setTimeout(() => {
             tip.path.style.transition = 'stroke-dashoffset ' + TUTORIAL_LINE_OUT_MS + 'ms ease-in';
-            tip.path.style.strokeDashoffset = -tip.length;
+            tip.path.style.strokeDashoffset = tip.length;
         }, TUTORIAL_CONE_MS);
 
         //3. only then the tooltip
@@ -161,6 +150,15 @@ const hideTips = function () {
     });
 };
 
+const hideTips = function () {
+
+    let leaving = tutorialTips;
+
+    tutorialTips = [];
+
+    dismissTips(leaving);
+};
+
 const addTip = function (spec) {
 
     let target = tutorialTarget(spec.target);
@@ -169,11 +167,14 @@ const addTip = function (spec) {
         return;
     }
 
-    let el = document.createElement('div');
+    let el = document.createElement('div'),
+        body = document.createElement('span');
 
     el.className = 'tutorial-tip';
-    el.textContent = spec.text;
+    body.className = 'tutorial-tip-body';
+    body.textContent = spec.text;
 
+    el.appendChild(body);
     tutorialLayer().appendChild(el);
 
     let path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
@@ -190,7 +191,19 @@ const addTip = function (spec) {
 
     target.classList.add('tutorial-target');
 
-    tutorialTips.push({el: el, path: path, head: head, target: target, side: spec.side, length: 0, drawn: false, timers: []});
+    tutorialTips.push({
+        el: el,
+        body: body,
+        path: path,
+        head: head,
+        target: target,
+        name: spec.target,
+        text: spec.text,
+        side: spec.side,
+        length: 0,
+        drawn: false,
+        timers: []
+    });
 };
 
 const edgePoint = function (rect, towardX, towardY, pad) {
@@ -332,18 +345,45 @@ const arrowFor = function (tipBox, targetBox) {
     };
 };
 
+//a target is often just one line of a block: #result sits directly on top of the
+//timezone. A tip below has to hang off the bottom of the whole block, or both it
+//and its arrow land on the line underneath
+const tipAnchor = function (tip) {
+
+    let box = tip.target.getBoundingClientRect();
+
+    if (tip.side !== 'below' || null == tip.target.parentElement) {
+        return box;
+    }
+
+    let bottom = Math.min(tip.target.parentElement.getBoundingClientRect().bottom, box.bottom + 80);
+
+    if (bottom <= box.bottom) {
+        return box;
+    }
+
+    return {
+        left: box.left,
+        top: box.top,
+        right: box.right,
+        bottom: bottom,
+        width: box.width,
+        height: bottom - box.top
+    };
+};
+
 const geometryKey = function () {
 
     return tutorialTips.map(tip => {
 
-        let b = tip.target.getBoundingClientRect();
+        let b = tipAnchor(tip);
 
         return Math.round(b.left) + ',' + Math.round(b.top) + ',' + Math.round(b.width) + ',' + Math.round(b.height);
     }).join('|');
 };
 
 //one read pass, then one write pass - never a read after a write
-const layoutTips = function (animate) {
+const layoutTips = function () {
 
     if (tutorialTips.length === 0) {
         return;
@@ -354,7 +394,7 @@ const layoutTips = function (animate) {
         vh = window.innerHeight,
         gap = Math.max(18, Math.min(TUTORIAL_GAP, vw * 0.06)),
         measured = tutorialTips.map(tip => ({
-            box: tip.target.getBoundingClientRect(),
+            box: tipAnchor(tip),
             w: tip.el.offsetWidth * scale,
             h: tip.el.offsetHeight * scale
         }));
@@ -385,18 +425,13 @@ const layoutTips = function (animate) {
 
         tip.path.style.transition = 'none';
         tip.path.style.strokeDasharray = length;
-
-        if (animate && !tutorialReduced()) {
-            tip.drawn = false;
-        }
-
         tip.path.style.strokeDashoffset = tip.drawn ? 0 : length;
     });
 };
 
-const revealTips = function () {
+const revealTips = function (arriving) {
 
-    tutorialTips.forEach(tip => {
+    arriving.forEach(tip => {
 
         //1. the tooltip
         tip.el.classList.add('show');
@@ -426,7 +461,7 @@ const followTips = function () {
     }
 
     if (tutorialTips.length > 0 && geometryKey() !== tutorialGeometry) {
-        layoutTips(false);
+        layoutTips();
     }
 
     tutorialFollowId = window.requestAnimationFrame(followTips);
@@ -527,10 +562,71 @@ const clearFields = async function (cancelled) {
     await eraseInput(inputs[0], cancelled);
 };
 
+
+const clearResult = function () {
+    LAST_DURATION = false;
+    LAST_DATE = null;
+    LAST_TITLE = '';
+    LAST_ZONE = '';
+    document.getElementById('result').innerHTML = '';
+    document.getElementById('timezone').innerHTML = '';
+    document.getElementById('calendar-holder').classList.add('hidden');
+};
+
+//a tip that stays on the same target and side is kept alive: it re-letters itself
+//in place and the arrow it already drew is never taken down and redrawn
 const showTips = async function (specs, cancelled) {
 
-    hideTips();
-    specs.forEach(addTip);
+    let staying = [],
+        arriving = [],
+        swapping = [];
+
+    specs.forEach(spec => {
+
+        let match = tutorialTips.find(tip => tip.name === spec.target && tip.side === spec.side && staying.indexOf(tip) < 0);
+
+        if (null == match) {
+            arriving.push(spec);
+            return;
+        }
+
+        staying.push(match);
+
+        if (match.text !== spec.text) {
+            match.pending = spec.text;
+            swapping.push(match);
+        }
+    });
+
+    let leaving = tutorialTips.filter(tip => staying.indexOf(tip) < 0);
+
+    tutorialTips = staying;
+
+    dismissTips(leaving);
+
+    if (swapping.length > 0) {
+
+        swapping.forEach(tip => tip.body.classList.add('tutorial-tip-blank'));
+
+        await sleep(TUTORIAL_SWAP_MS);
+
+        if (cancelled()) {
+            return;
+        }
+
+        swapping.forEach(tip => {
+            tip.text = tip.pending;
+            tip.body.textContent = tip.pending;
+        });
+    }
+
+    //staying and tutorialTips are the same array now, so the count has to be
+    //taken before addTip starts pushing into it
+    let kept = tutorialTips.length;
+
+    arriving.forEach(addTip);
+
+    let fresh = tutorialTips.slice(kept);
 
     //measure on one frame, paint the start state, reveal on the next
     await tutorialFrame();
@@ -539,7 +635,11 @@ const showTips = async function (specs, cancelled) {
         return;
     }
 
-    layoutTips(true);
+    //the box resizes around the new text while it is still invisible, so the
+    //bubble and its arrow move together instead of drifting apart
+    layoutTips();
+
+    swapping.forEach(tip => tip.body.classList.remove('tutorial-tip-blank'));
 
     await tutorialFrame();
 
@@ -547,7 +647,7 @@ const showTips = async function (specs, cancelled) {
         return;
     }
 
-    revealTips();
+    revealTips(fresh);
 };
 
 const flashEnter = function (input) {
@@ -835,8 +935,7 @@ const TUTORIAL_STEPS = {
         if (cancelled()) return;
 
         await showTips([
-            {target: 'calendar', side: 'right', text: 'When the answer is a date, drop it straight into Google Calendar'},
-            {target: 'result', side: 'below', text: 'It only shows up for dates, never for durations'}
+            {target: 'calendar', side: 'right', text: 'When the answer is a date, drop it straight into Google Calendar'}
         ], cancelled);
     }
 
@@ -916,12 +1015,13 @@ const startTutorial = function () {
 
     document.body.classList.add('tutorial-on');
 
+    if (null != document.activeElement) {
+        document.activeElement.blur();
+    }
+
     if (null == tutorialFollowId) {
         tutorialFollowId = window.requestAnimationFrame(followTips);
     }
-
-    document.getElementById('guideNext').style.display = 'block';
-    document.getElementById('guidePrev').style.display = 'block';
 
     goToStep(0);
 };
@@ -956,8 +1056,48 @@ const stopTutorial = function () {
     updateCounter();
 
     document.body.classList.remove('tutorial-on');
-    document.getElementById('guideNext').style.display = 'block';
-    document.getElementById('guidePrev').style.display = 'block';
+};
+
+//browser shortcuts stay alive: only keys that would type, scroll or move focus
+//get their default taken away
+const TUTORIAL_EATEN = [' ', 'Enter', 'Tab', 'Backspace', 'Delete', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
+
+const tutorialSwallow = function (e) {
+
+    if (!tutorialActive) {
+        return;
+    }
+
+    e.stopImmediatePropagation();
+
+    if (!e.ctrlKey && !e.metaKey && !e.altKey && (e.key.length === 1 || TUTORIAL_EATEN.indexOf(e.key) >= 0)) {
+        e.preventDefault();
+    }
+};
+
+const tutorialKeys = function (e) {
+
+    if (!tutorialActive) {
+        return;
+    }
+
+    tutorialSwallow(e);
+
+    if (e.ctrlKey || e.metaKey || e.altKey) {
+        return;
+    }
+
+    if (e.key === 'Escape') {
+        stopTutorial();
+    }
+
+    if (e.key === 'ArrowRight') {
+        goToStep(tutorialIndex + 1);
+    }
+
+    if (e.key === 'ArrowLeft') {
+        goToStep(tutorialIndex - 1);
+    }
 };
 
 const toggleTutorial = function () {
@@ -978,26 +1118,12 @@ window.addEventListener('load', function () {
 
     window.addEventListener('resize', () => {
         if (tutorialActive) {
-            layoutTips(false);
+            layoutTips();
         }
     });
 
-    window.addEventListener('keydown', (e) => {
-
-        if (!tutorialActive) {
-            return;
-        }
-
-        if (e.key === 'Escape') {
-            stopTutorial();
-        }
-
-        if (e.key === 'ArrowRight') {
-            goToStep(tutorialIndex + 1);
-        }
-
-        if (e.key === 'ArrowLeft') {
-            goToStep(tutorialIndex - 1);
-        }
-    });
+    //capture, so the page never sees a key while the tutorial is driving
+    window.addEventListener('keydown', tutorialKeys, true);
+    window.addEventListener('keypress', tutorialSwallow, true);
+    window.addEventListener('keyup', tutorialSwallow, true);
 });

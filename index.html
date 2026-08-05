@@ -166,6 +166,23 @@
             transform: none;
         }
 
+        .tutorial-tip-body {
+            transition: opacity 140ms ease;
+        }
+
+        .tutorial-tip-body.tutorial-tip-blank {
+            opacity: 0;
+        }
+
+        body.tutorial-on .guide-nav {
+            display: flex;
+        }
+
+        body.tutorial-on #main {
+            pointer-events: none;
+            user-select: none;
+        }
+
         .tutorial-target {
             animation: tutorial-pulse 1.6s ease-in-out infinite;
         }
@@ -208,7 +225,7 @@
 
         @media (prefers-reduced-motion: reduce) {
 
-            .tutorial-tip, .tutorial-arrow {
+            .tutorial-tip, .tutorial-tip-body, .tutorial-arrow {
                 transition: none;
             }
 

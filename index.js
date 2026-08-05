@@ -255,16 +255,6 @@ const renderResult = function (text) {
     }
 };
 
-const clearResult = function () {
-
-    LAST_DURATION = false;
-    LAST_DATE = null;
-    LAST_TITLE = '';
-    LAST_ZONE = '';
-
-    renderResult('');
-};
-
 const runCalc = function () {
 
     let inputs = Array.from(document.getElementsByClassName('input'));
