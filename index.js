@@ -6,16 +6,53 @@ const ADD_INPUT_NUMBER = '2';
 
 const HAS_TIME_REGEX = new RegExp('\\d{2}:\\d{2}:\\d{2}');
 const RUS_DATE_REGEX = new RegExp('\\d{2}([.\\-])\\d{2}([.\\-])(?:\\d{2}|\\d{4}).*');
-const DURATION = new RegExp('^\\s*(?:\\d+\\s*(?:y|yr|yrs|year|years|mo|month|months|w|week|weeks|d|day|days|h|hr|hrs|hour|hours|m|min|mins|minute|minutes|s|sec|secs|second|seconds)\\s*)+$', 'i');
 
-const UNIT_ORDER = ['years', 'months', 'days', 'hours', 'minutes', 'seconds'];
+const UNITS = {
+    years: 'years', year: 'year', yrs: 'years', yr: 'year', y: 'year',
+    months: 'months', month: 'month', mos: 'months', mo: 'months', M: 'months',
+    weeks: 'weeks', week: 'week', wks: 'weeks', wk: 'weeks', w: 'weeks',
+    days: 'days', day: 'day', d: 'days',
+    hours: 'hours', hour: 'hour', hrs: 'hours', hr: 'hours', h: 'hours',
+    minutes: 'minutes', minute: 'minutes', mins: 'minutes', min: 'minutes', m: 'minutes',
+    seconds: 'seconds', second: 'seconds', secs: 'seconds', sec: 'seconds', s: 'seconds'
+};
+
+const UNIT_ORDER = ['years', 'months', 'weeks', 'days', 'hours', 'minutes', 'seconds'];
+
+const UNIT_ALTERNATION = Object.keys(UNITS)
+    .sort((a, b) => b.length - a.length)
+    .join('|');
+
+const DURATION = new RegExp('^\\s*(?:[-+]?\\s*\\d+\\s*(?:' + UNIT_ALTERNATION + ')\\s*)+$', 'i');
+
+const SEGMENT_GLOBAL = new RegExp('\\d+\\s*[a-zA-Z]+', 'g');
+const SEGMENT_PARTS = new RegExp('(\\d+)\\s*([a-zA-Z]+)');
+
+const CLOCK_PATTERN = 'DD.MM.YYYY HH:mm:ss dddd MMMM';
+const DATE_PATTERN = 'DD.MM.YYYY dddd MMMM';
+
+const SHARE_DATE = 'd';
+const SHARE_UNIT = 'u';
+const SHARE_REF = 't';
+const SHARE_ZONE = 'z';
+
+const TOOLTIP_MS = 2000;
+const COPIED_MS = 2000;
+
+const TOOLTIP_TIMERS = {};
+
+const CALENDAR_URL = 'https://calendar.google.com/calendar/render';
+const CALENDAR_MINUTES = 60;
 
 let LAST_DURATION = false;
+let LAST_DATE = null;
+let LAST_TITLE = '';
+let LAST_ZONE = '';
 
-let guideTimeunitId = null;
-let tooltipTimeunitId = null;
+let SHARED_REFERENCE = null;
+let SHARED_ZONE = null;
 
-let guideStage = 0;
+let copiedTimerId = null;
 
 const toElement = function (elements) {
     return elements
@@ -26,23 +63,8 @@ const toElement = function (elements) {
         }, {});
 };
 
-const getOperations = function (string) {
-
-    const hasMinus = string.indexOf('-') !== -1;
-
-    return string
-        .match(/\d+\s*[a-zA-Z]+/g)
-        .map(segment => {
-            let [, num, unit] = segment.match(/(\d+)\s*([a-zA-Z]+)/);
-            return {num: hasMinus ? -num : +num, unit: formatUnits(unit)};
-        })
-        .sort((a, b) => {
-            return UNIT_ORDER.indexOf(b.unit) - UNIT_ORDER.indexOf(a.unit);
-        });
-};
-
-const isNotVisible = function (e) {
-    return e.classList.contains('opacity-0');
+const isKnownUnit = function (unit) {
+    return UNITS.hasOwnProperty(unit) || UNITS.hasOwnProperty(unit.toLowerCase());
 };
 
 const formatUnits = function (unit) {
@@ -51,82 +73,195 @@ const formatUnits = function (unit) {
         return null;
     }
 
-    if ('Months'.startsWith(unit)) {
-        return 'months';
+    if (UNITS.hasOwnProperty(unit)) {
+        return UNITS[unit];
     }
 
-    if ('minutes'.startsWith(unit)) {
-        return 'minutes';
-    }
+    let lower = unit.toLowerCase();
 
-    if ('seconds'.startsWith(unit)) {
-        return 'seconds';
-    }
-
-    if ('year'.startsWith(unit)) {
-        return 'year';
-    }
-
-    return unit;
+    return UNITS.hasOwnProperty(lower) ? UNITS[lower] : unit;
 };
 
-const calcRes = function (inputs) {
+const getOperations = function (string) {
+
+    let segments = string.match(SEGMENT_GLOBAL);
+
+    if (null == segments) {
+        return null;
+    }
+
+    const hasMinus = string.indexOf('-') !== -1;
+
+    let operations = [];
+
+    for (let i = 0; i < segments.length; i++) {
+
+        let [, num, unit] = segments[i].match(SEGMENT_PARTS);
+
+        if (!isKnownUnit(unit)) {
+            return null;
+        }
+
+        operations.push({num: hasMinus ? -num : +num, unit: formatUnits(unit)});
+    }
+
+    return operations.sort((a, b) => {
+        return UNIT_ORDER.indexOf(b.unit) - UNIT_ORDER.indexOf(a.unit);
+    });
+};
+
+const isNotVisible = function (e) {
+    return e.classList.contains('opacity-0');
+};
+
+const toggleOpacity = function (element) {
+    element.classList.toggle('opacity-0')
+    element.classList.toggle('opacity-1')
+};
+
+const flashTooltip = function (id) {
+
+    let elem = document.getElementById(id);
+
+    if (null == elem) {
+        return;
+    }
+
+    if (isNotVisible(elem)) {
+        toggleOpacity(elem);
+    }
+
+    window.clearTimeout(TOOLTIP_TIMERS[id]);
+
+    TOOLTIP_TIMERS[id] = window.setTimeout(() => {
+        if (!isNotVisible(elem)) {
+            toggleOpacity(elem);
+        }
+        delete TOOLTIP_TIMERS[id];
+    }, TOOLTIP_MS);
+};
+
+const localZone = function () {
+    try {
+        return Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+    } catch (e) {
+        return '';
+    }
+};
+
+const zoneLabel = function (momentDate) {
+
+    let zone = localZone(),
+        offset = 'UTC' + momentDate.format('Z'),
+        label = zone ? zone + ' (' + offset + ')' : offset;
+
+    if (SHARED_ZONE && SHARED_ZONE !== zone) {
+        return label + ' · shared from ' + SHARED_ZONE;
+    }
+
+    return label;
+};
+
+//if time without clockunit don't need to render it
+const hasClockUnit = function (momentDate) {
+    return 0 !== (momentDate.hours() || momentDate.minutes() || momentDate.seconds());
+}
+const formatMoment = function (momentDate) {
+    return momentDate.format(hasClockUnit(momentDate) ? CLOCK_PATTERN : DATE_PATTERN);
+};
+
+const keepDate = function (momentDate, title) {
+
+    LAST_DATE = momentDate.clone();
+    LAST_TITLE = title;
+
+    return formatMoment(momentDate);
+};
+
+const calcRes = function (inputs, referenceDate) {
 
     LAST_DURATION = false;
+    LAST_DATE = null;
+    LAST_TITLE = '';
+    LAST_ZONE = '';
 
     let elements = toElement(inputs),
-        value_1 = elements[DATE_INPUT_NUMBER].value,
-        //parse to date, date input val
-        firstDate = parseDate(value_1),
-        //get val of add\subtract unit
-        value_2 = elements[ADD_INPUT_NUMBER].value,
-        //maybe its date
-        secondDate = parseDate(value_2);
+        value_1 = elements[DATE_INPUT_NUMBER].value.trim(),
+        value_2 = elements[ADD_INPUT_NUMBER].value.trim();
 
-    let res;
+    if (0 === value_1.length) {
+        return '';
+    }
+
+    //parse to date, date input val
+    let firstDate = parseDate(value_1, referenceDate);
+
+    if (null == firstDate) {
+        flashTooltip('date-tooltip');
+        return '';
+    }
+
+    let fixedDate_1 = fixDate(firstDate, firstDate.start.moment());
+
+    LAST_ZONE = zoneLabel(fixedDate_1);
+
+    if (0 === value_2.length) {
+        return keepDate(fixedDate_1, value_1);
+    }
+
+    //maybe its date
+    let secondDate = parseDate(value_2, referenceDate);
 
     if (null == secondDate) {
 
-        value_2 = value_2.trim();
         //take unit from value
-        let operations = getOperations(value_2)
+        let operations = getOperations(value_2);
 
-        if (value_2.length > 0 && operations.filter(Boolean).length === 0) {
-            toggleTooltip()
-            return;
+        if (null == operations) {
+            flashTooltip('unit-tooltip');
+            return '';
         }
 
-        let adds = operations,
-            moment = firstDate.start.moment(),
-            fixedDate = fixDate(firstDate, moment),
-            result = adds.reduce((acc, s) => acc.add(s.num, s.unit), fixedDate),
-            //if time without clockunit don't need to render it
-            hasClockUnit = 0 !== (result.hours() || result.minutes() /*|| result.seconds()*/),
-            pattern = hasClockUnit ? 'DD.MM.YYYY HH:mm:ss dddd MMMM' : 'DD.MM.YYYY dddd MMMM';
-
-        res = result.format(pattern);
-
-    } else {
-
-        let moment_1 = firstDate.start.moment(),
-            fixedDate_1 = fixDate(firstDate, moment_1),
-            moment_2 = secondDate.start.moment(),
-            fixedDate_2 = fixDate(secondDate, moment_2),
-            //result
-            result = makeDiff(fixedDate_1, fixedDate_2),
-            duration = moment.duration(result);
-
-        res = formatDuration(duration, fixedDate_1, fixedDate_2);
-
-        LAST_DURATION = duration;
+        return keepDate(operations.reduce((acc, s) => acc.add(s.num, s.unit), fixedDate_1), value_1 + ' ' + value_2);
     }
 
-    return res;
-}
+    let fixedDate_2 = fixDate(secondDate, secondDate.start.moment()),
+        duration = moment.duration(makeDiff(fixedDate_1, fixedDate_2));
 
-const onKeyUp = function (e) {
+    LAST_DURATION = duration;
+
+    return formatDuration(duration, fixedDate_1, fixedDate_2);
+};
+
+const renderResult = function (text) {
+
+    if (!text) {
+        return;
+    }
+
+    document.getElementById('result').innerHTML = text;
+
+    let zone = document.getElementById('timezone');
+
+    if (null != zone) {
+        zone.innerHTML = LAST_ZONE;
+    }
+
+    let calendar = document.getElementById('calendar-holder');
+
+    if (null != calendar) {
+        calendar.classList.toggle('hidden', null == LAST_DATE);
+    }
+};
+
+const runCalc = function () {
 
     let inputs = Array.from(document.getElementsByClassName('input'));
+
+    renderResult(calcRes(inputs, SHARED_REFERENCE));
+};
+
+const onKeyUp = function (e) {
 
     let isEnterPress = ENTER_KEY === e.keyCode;
 
@@ -134,27 +269,18 @@ const onKeyUp = function (e) {
         return;
     }
 
-    document.getElementById('result').innerHTML = calcRes(inputs);
-
-    if (guideStage > 0) {
-
-        let unitResultTooltip = document.getElementById('unit-result-tooltip'),
-            dateResultTooltip = document.getElementById('date-result-tooltip');
-
-        if (isNotVisible(unitResultTooltip) && guideStage === 1) {
-            toggleOpacity(unitResultTooltip);
-        }
-
-        if (isNotVisible(dateResultTooltip) && guideStage === 2) {
-            toggleOpacity(dateResultTooltip);
-        }
-
-    }
-
+    runCalc();
 };
 
 const makeDiff = function (a, b) {
     return a.diff(b);
+};
+
+const formatTotalDays = function (duration) {
+
+    let days = Math.abs(duration.asDays());
+
+    return (days === Math.trunc(days) ? days : days.toFixed(2)) + ' days';
 };
 
 const formatDuration = function (duration, date1, date2, showDays) {
@@ -166,7 +292,7 @@ const formatDuration = function (duration, date1, date2, showDays) {
 
     //now its suits, but can be as different func
     if (showDays) {
-        return Math.abs(duration.asDays()) + ' days';
+        return formatTotalDays(duration);
     }
 
     let s = [
@@ -200,7 +326,7 @@ const parseDate = function (string, /*for tests*/ referenceDate) {
     }
 
     //easy, but bad, it parse words-dates, ether way u need to known all words
-    let isDate = chrono.parseDate(string) !== null,
+    let isDate = chrono.parseDate(string, referenceDate) !== null,
         params = {forwardDate: true};
 
     if (isDate) {
@@ -226,161 +352,160 @@ const fixDate = function (chronoObj, momentDate) {
 };
 
 
-const debounceTooltip = (callback, wait) => {
-    return (...args) => {
-        window.clearTimeout(tooltipTimeunitId);
-        tooltipTimeunitId = window.setTimeout(() => {
-            callback(...args);
-            tooltipTimeunitId = null;
-        }, wait);
-    };
-}
+const buildCalendarUrl = function () {
 
-const toggleTooltip = function () {
-    let elem = document.getElementById('unit-tooltip');
-    let callback = toggleOpacity.bind(null, elem);
-    if (tooltipTimeunitId === null) {
-        callback()
-    }
-    debounceTooltip(callback, 2000)();
-};
-
-const debounceGuide = (callback, wait) => {
-    return (...args) => {
-        window.clearTimeout(guideTimeunitId);
-        guideTimeunitId = window.setTimeout(() => {
-            callback(...args);
-            guideTimeunitId = null;
-        }, wait);
-    };
-}
-
-const toggleOpacity = function (element) {
-    element.classList.toggle('opacity-0')
-    element.classList.toggle('opacity-1')
-};
-
-const toggleGuide = function (e) {
-
-    if (guideStage !== 0 && e.type === 'click') {
-        e = {type: 'system'};
+    if (null == LAST_DATE) {
+        return null;
     }
 
-    guideStage = 0;
+    let start = LAST_DATE.clone(),
+        params = new URLSearchParams();
 
-    let next = document.getElementsByClassName('next')[0],
-        prev = document.getElementsByClassName('prev')[0]
+    params.set('action', 'TEMPLATE');
+    params.set('text', LAST_TITLE);
 
-    next.classList.toggle('hidden');
-    prev.classList.toggle('hidden');
-
-    let inputs = document.getElementsByClassName('input'),
-        input_1 = inputs[0],
-        input_2 = inputs[1],
-        result = document.getElementById('result'),
-        tooltips = document.getElementById('tooltips');
-
-    input_1.value = null;
-    input_2.value = null;
-    input_1.readOnly = false;
-    input_2.readOnly = false;
-    result.innerHTML = null;
-    Array.from(tooltips.children).forEach(a => {
-        if (!a.classList.contains('opacity-0')) {
-            toggleOpacity(a)
-        }
-    });
-
-    if (e.type === 'click') {
-        toggleStage(true);
-    }
-};
-
-const toggleStage = function (isNext) {
-
-    if (isNext) {
-        guideStage = guideStage + 1;
+    if (hasClockUnit(start)) {
+        params.set('dates', start.format('YYYYMMDD[T]HHmmss') + '/' + start.clone().add(CALENDAR_MINUTES, 'minutes').format('YYYYMMDD[T]HHmmss'));
     } else {
-        guideStage = guideStage - 1;
+        params.set('dates', start.format('YYYYMMDD') + '/' + start.clone().add(1, 'day').format('YYYYMMDD'));
     }
+
+    let zone = localZone();
+
+    if (zone) {
+        params.set('ctz', zone);
+    }
+
+    return CALENDAR_URL + '?' + params.toString();
+};
+
+const onCalendar = function () {
+
+    let url = buildCalendarUrl();
+
+    if (null == url) {
+        return;
+    }
+
+    window.open(url, '_blank', 'noopener');
+};
+
+const baseUrl = function () {
+    return location.href.split('#')[0].split('?')[0];
+};
+
+const buildShareUrl = function () {
 
     let inputs = document.getElementsByClassName('input'),
-        input_1 = inputs[0],
-        input_2 = inputs[1],
-        result = document.getElementById('result');
+        params = new URLSearchParams();
 
-    if (guideStage > 3) {
-        toggleGuide({type: 'system'});
+    params.set(SHARE_DATE, inputs[0].value.trim());
+    params.set(SHARE_UNIT, inputs[1].value.trim());
+    params.set(SHARE_REF, String(Date.now()));
+
+    let zone = localZone();
+
+    if (zone) {
+        params.set(SHARE_ZONE, zone);
     }
 
-    let pressEnterTooltip = document.getElementById('press-enter-tooltip'),
-        putUnitTooltip = document.getElementById('put-unit-tooltip'),
-        putDateTooltip = document.getElementById('put-date-tooltip'),
-        unitResultTooltip = document.getElementById('unit-result-tooltip');
-
-    if (guideStage === 1) {
-        input_1.value = '22.11.1996';
-        input_2.value = '33y';
-        result.innerHTML = null;
-        input_1.readOnly = true;
-        input_2.readOnly = true;
-
-        //show explanations
-        toggleOpacity(pressEnterTooltip)
-        toggleOpacity(putUnitTooltip)
-        toggleOpacity(putDateTooltip)
-        onKeyUp({keyCode: ENTER_KEY})
-    }
-
-    let putSecondDateTooltip = document.getElementById('put-second-date-tooltip'),
-        dateResultTooltip = document.getElementById('date-result-tooltip');
-
-    if (guideStage === 2) {
-
-        //hide prev explanations
-        toggleOpacity(pressEnterTooltip)
-        toggleOpacity(putUnitTooltip)
-        toggleOpacity(putDateTooltip)
-        if (false === isNotVisible(unitResultTooltip)) {
-            toggleOpacity(unitResultTooltip);
-        }
-
-        input_1.value = '22.11.1996';
-        input_2.value = '18.11.2115';
-        result.innerHTML = null;
-        input_1.readOnly = true;
-        input_2.readOnly = true;
-
-        toggleOpacity(pressEnterTooltip)
-        toggleOpacity(putDateTooltip)
-        toggleOpacity(putSecondDateTooltip)
-        onKeyUp({keyCode: ENTER_KEY})
-    }
-
-    let putWordsTooltip = document.getElementById('put-words-tooltip');
-
-    if (guideStage === 3) {
-
-        //hide prev explanations
-        toggleOpacity(pressEnterTooltip)
-        toggleOpacity(putDateTooltip)
-        toggleOpacity(putSecondDateTooltip)
-        if (false === isNotVisible(dateResultTooltip)) {
-            toggleOpacity(dateResultTooltip);
-        }
-
-        input_1.value = 'now';
-        input_2.value = 'next friday';
-        result.innerHTML = null;
-        input_1.readOnly = true;
-        input_2.readOnly = true;
-
-        toggleOpacity(pressEnterTooltip)
-        toggleOpacity(putWordsTooltip)
-        onKeyUp({keyCode: ENTER_KEY})
-    }
-
+    return baseUrl() + '?' + params.toString();
 };
+
+const copyText = function (text) {
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        return navigator.clipboard.writeText(text);
+    }
+
+    return new Promise((resolve, reject) => {
+
+        let area = document.createElement('textarea');
+
+        area.value = text;
+        area.setAttribute('readonly', '');
+        area.style.position = 'fixed';
+        area.style.opacity = '0';
+
+        document.body.appendChild(area);
+        area.select();
+
+        //fix deprecated
+        const copied = document.execCommand('copy');
+
+        document.body.removeChild(area);
+
+        copied ? resolve() : reject();
+    });
+};
+
+const showCopied = function (text) {
+
+    let elem = document.getElementsByClassName('copy-text')[0];
+
+    elem.innerHTML = text;
+    elem.classList.remove('hidden');
+
+    window.clearTimeout(copiedTimerId);
+
+    copiedTimerId = window.setTimeout(() => {
+        elem.classList.add('hidden');
+        copiedTimerId = null;
+    }, COPIED_MS);
+};
+
+const onShare = function () {
+
+    let inputs = document.getElementsByClassName('input');
+
+    if (inputs[0].value.trim().length === 0) {
+        flashTooltip('date-tooltip');
+        return;
+    }
+
+    let url = buildShareUrl();
+
+    history.replaceState(null, '', url);
+
+    copyText(url)
+        .then(() => showCopied('Copied!'))
+        .catch(() => showCopied('Copy from address bar'));
+};
+
+const clearSharedState = function () {
+
+    if (null == SHARED_REFERENCE && null == SHARED_ZONE) {
+        return;
+    }
+
+    SHARED_REFERENCE = null;
+    SHARED_ZONE = null;
+
+    history.replaceState(null, '', baseUrl());
+};
+
+const applySharedState = function () {
+
+    let params = new URLSearchParams(location.search),
+        date = params.get(SHARE_DATE);
+
+    if (null == date) {
+        return false;
+    }
+
+    let inputs = document.getElementsByClassName('input');
+
+    inputs[0].value = date;
+    inputs[1].value = params.get(SHARE_UNIT) || '';
+
+    let ref = Number(params.get(SHARE_REF));
+
+    SHARED_REFERENCE = Number.isFinite(ref) && ref > 0 ? new Date(ref) : null;
+    SHARED_ZONE = params.get(SHARE_ZONE);
+
+    return true;
+};
+
 
 //check requests to other sites
 window.onload = function () {
@@ -393,30 +518,20 @@ window.onload = function () {
         input.addEventListener('keyup', onKeyUp)
     })
 
-    let questionMark = document.getElementsByClassName('question-mark')[0],
-        next = document.getElementsByClassName('next')[0],
-        prev = document.getElementsByClassName('prev')[0];
-
-    questionMark.addEventListener('click', toggleGuide);
-    next.addEventListener('click', () => toggleStage(true));
-    prev.addEventListener('click', () => toggleStage(false));
+    document.getElementById('share-btn').addEventListener('click', onShare);
+    document.getElementById('calendar-btn').addEventListener('click', onCalendar);
 
     document.getElementById('result').addEventListener('click', (e) => {
 
         if (LAST_DURATION) {
-            e.target.innerHTML = e.target.innerHTML + ' (' + formatDuration(LAST_DURATION, null, null, true) + ')';
+            e.target.innerHTML = e.target.innerHTML + ' (' + formatTotalDays(LAST_DURATION) + ')';
             LAST_DURATION = false;
         }
 
-        //todo move to the special button
-        // let text = e.target.innerHTML;
-        //
-        // navigator.clipboard.writeText(text)
-        //     .then(() => {
-        //     })
-        //     .catch(err => {
-        //         console.error("Error copying text: ", err);
-        //     });
     });
-}
 
+    if (applySharedState()) {
+        runCalc();
+        clearSharedState();
+    }
+}
