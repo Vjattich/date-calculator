@@ -98,10 +98,6 @@ const tutorialTarget = function (name) {
     return document.getElementById(name);
 };
 
-const tutorialMobile = function () {
-    return window.matchMedia('(max-width: 768px)').matches;
-};
-
 const tutorialLayer = function () {
     return document.getElementById('tutorial-layer');
 };
@@ -188,7 +184,7 @@ const setKey = function (tip, key) {
     let cap = document.createElement('span');
 
     cap.className = 'tutorial-key';
-    cap.textContent = tutorialMobile() ? '\u21B5' : tip.key;
+    cap.textContent = isMobile() ? '\u21B5' : tip.key;
 
     tip.el.appendChild(cap);
     tip.keyEl = cap;
@@ -500,7 +496,7 @@ const layoutTips = function () {
     tutorialTips.forEach((tip, i) => {
 
         let m = measured[i],
-            tipBox = (tutorialMobile() ? mobileTipBox(tip, m.w, m.h, gap, vw, vh) : null) ||
+            tipBox = (isMobile() ? mobileTipBox(tip, m.w, m.h, gap, vw, vh) : null) ||
                 tipBoxFor(tip, m.box, m.w, m.h, gap, vw, vh);
 
         tip.el.style.left = (tipBox.left / scale) + 'px';
@@ -1087,7 +1083,7 @@ const TUTORIAL_STEPS = {
         if (cancelled()) return;
 
         //on a phone the button sits under the thumb and Copied! has nowhere to go
-        if (!tutorialMobile()) {
+        if (!isMobile()) {
             showCopied('Copied!');
         }
     },

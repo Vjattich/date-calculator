@@ -54,6 +54,10 @@ let SHARED_ZONE = null;
 
 let copiedTimerId = null;
 
+const isMobile = function () {
+    return window.matchMedia('(max-width: 768px)').matches;
+};
+
 const toElement = function (elements) {
     return elements
         .map(e => ({value: e.value, pos: e.classList[NUMBER_POSITION], self: e}))
@@ -468,7 +472,7 @@ const onShare = function () {
     history.replaceState(null, '', url);
 
     copyText(url)
-        .then(() => showCopied('Copied!'))
+        .then(() => isMobile() ? null : showCopied('Copied!'))
         .catch(() => showCopied('Copy from address bar'));
 };
 
