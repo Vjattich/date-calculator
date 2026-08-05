@@ -65,6 +65,14 @@
             case6_2.classList.add('input', '2')
             case6_2.value = '18 hours 45 minutes'
 
+            let case7_1 = document.createElement('input');
+            case6_1.classList.add('input', '1')
+            case6_1.value = '22.11.1996 00.00'
+
+            let case7_2 = document.createElement('input');
+            case6_2.classList.add('input', '2')
+            case6_2.value = '3 sec'
+
             //WHEN
             let
                 result1 = calcRes([case1_1, case1_2])
@@ -73,6 +81,7 @@
                 , result4 = calcRes([case4_1, case4_2])
                 , result5 = calcRes([case5_1, case5_2])
                 , result6 = calcRes([case6_1, case6_2])
+                , result7 = calcRes([case6_1, case6_2])
                 ;
 
             //THEN
@@ -82,6 +91,7 @@
             assert.equal(result4, '21.10.1996 Monday October');
             assert.equal(result5, '03.05.2026 16:30:00 Sunday May');
             assert.equal(result6, '03.05.2026 16:45:00 Sunday May');
+            assert.equal(result7, '22.11.1996 00:00:03 Friday November');
         })
 
 

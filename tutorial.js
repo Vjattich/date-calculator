@@ -12,7 +12,8 @@ const
     TUTORIAL_LINE_OUT_MS = 100,
     TUTORIAL_FADE = 240,
     TUTORIAL_ERASE_MS = 26,
-    TUTORIAL_SWAP_MS = 140;
+    TUTORIAL_TIP_TYPE_MS = 18,
+    TUTORIAL_TIP_ERASE_MS = 9;
 
 let tutorialActive = false,
     tutorialIndex = -1,
@@ -124,28 +125,35 @@ const dismissTips = function (leaving) {
         tip.timers.forEach(id => window.clearTimeout(id));
         tip.timers = [];
 
-        //two tips can share a target, the pulse belongs to the last one standing
-        if (!tutorialTips.some(rest => rest.target === tip.target)) {
-            tip.target.classList.remove('tutorial-target');
-        }
+        tip.arms.forEach(arm => {
 
-        //1. the cone goes
-        tip.head.style.transition = 'opacity ' + TUTORIAL_CONE_MS + 'ms ease-in';
-        tip.head.style.opacity = '0';
+            //tips can share a target, the pulse belongs to the last one standing
+            if (!tutorialTips.some(rest => rest.arms.some(other => other.target === arm.target))) {
+                arm.target.classList.remove('tutorial-target');
+            }
 
-        //2. the line un-draws backwards, from the cone down to the tooltip
-        window.setTimeout(() => {
-            tip.path.style.transition = 'stroke-dashoffset ' + TUTORIAL_LINE_OUT_MS + 'ms ease-in';
-            tip.path.style.strokeDashoffset = tip.length;
-        }, TUTORIAL_CONE_MS);
+            //1. the cone goes
+            arm.head.style.transition = 'opacity ' + TUTORIAL_CONE_MS + 'ms ease-in';
+            arm.head.style.opacity = '0';
+
+            //2. the line un-draws backwards, from the cone down to the tooltip
+            window.setTimeout(() => {
+                arm.path.style.transition = 'stroke-dashoffset ' + TUTORIAL_LINE_OUT_MS + 'ms ease-in';
+                arm.path.style.strokeDashoffset = arm.length;
+            }, TUTORIAL_CONE_MS);
+        });
 
         //3. only then the tooltip
         window.setTimeout(() => tip.el.classList.remove('show'), TUTORIAL_CONE_MS + TUTORIAL_LINE_OUT_MS);
 
         window.setTimeout(() => {
+
             tip.el.remove();
-            tip.path.remove();
-            tip.head.remove();
+
+            tip.arms.forEach(arm => {
+                arm.path.remove();
+                arm.head.remove();
+            });
         }, TUTORIAL_CONE_MS + TUTORIAL_LINE_OUT_MS + TUTORIAL_TIP_MS + 60);
     });
 };
@@ -159,11 +167,65 @@ const hideTips = function () {
     dismissTips(leaving);
 };
 
+//the key cap is a system font sitting inside a cursive bubble, so it is its own
+//element rather than part of the text that gets typed
+const setKey = function (tip, key) {
+
+    if (tip.key === (key || null)) {
+        return;
+    }
+
+    if (null != tip.keyEl) {
+        tip.keyEl.remove();
+        tip.keyEl = null;
+    }
+
+    tip.key = key || null;
+
+    if (null == tip.key) {
+        return;
+    }
+
+    let cap = document.createElement('span');
+
+    cap.className = 'tutorial-key';
+    cap.textContent = window.matchMedia('(max-width: 768px)').matches ? '\u21B5' : tip.key;
+
+    tip.el.appendChild(cap);
+    tip.keyEl = cap;
+};
+
 const addTip = function (spec) {
 
-    let target = tutorialTarget(spec.target);
+    let names = Array.isArray(spec.target) ? spec.target : [spec.target],
+        arms = [];
 
-    if (null == target) {
+    names.forEach(name => {
+
+        let target = tutorialTarget(name);
+
+        if (null == target) {
+            return;
+        }
+
+        let path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+
+        path.setAttribute('class', 'tutorial-arrow');
+
+        let head = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+
+        head.setAttribute('class', 'tutorial-arrow tutorial-arrow-head');
+        head.setAttribute('d', 'M 0 0 L ' + (-TUTORIAL_CONE_LEN) + ' -4 L ' + (-TUTORIAL_CONE_LEN) + ' 4 Z');
+
+        tutorialArrows().appendChild(path);
+        tutorialArrows().appendChild(head);
+
+        target.classList.add('tutorial-target');
+
+        arms.push({target: target, path: path, head: head, length: 0});
+    });
+
+    if (arms.length === 0) {
         return;
     }
 
@@ -177,33 +239,23 @@ const addTip = function (spec) {
     el.appendChild(body);
     tutorialLayer().appendChild(el);
 
-    let path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-
-    path.setAttribute('class', 'tutorial-arrow');
-
-    let head = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-
-    head.setAttribute('class', 'tutorial-arrow tutorial-arrow-head');
-    head.setAttribute('d', 'M 0 0 L ' + (-TUTORIAL_CONE_LEN) + ' -4 L ' + (-TUTORIAL_CONE_LEN) + ' 4 Z');
-
-    tutorialArrows().appendChild(path);
-    tutorialArrows().appendChild(head);
-
-    target.classList.add('tutorial-target');
-
-    tutorialTips.push({
+    let tip = {
         el: el,
         body: body,
-        path: path,
-        head: head,
-        target: target,
-        name: spec.target,
+        keyEl: null,
+        arms: arms,
+        name: names.join('+'),
         text: spec.text,
         side: spec.side,
-        length: 0,
+        shift: spec.shift || 0,
+        key: null,
         drawn: false,
         timers: []
-    });
+    };
+
+    setKey(tip, spec.key);
+
+    tutorialTips.push(tip);
 };
 
 const edgePoint = function (rect, towardX, towardY, pad) {
@@ -319,6 +371,12 @@ const tipBoxFor = function (tip, box, w, h, gap, vw, vh) {
         y = cy - h / 2;
     }
 
+    //some targets have a neighbour sitting exactly where the tip would centre
+    //itself - the share button has its Copied! text right beside it
+    if (tip.shift) {
+        y = y + tip.shift * h;
+    }
+
     x = Math.max(8, Math.min(x, vw - w - 8));
     y = Math.max(8, Math.min(y, vh - h - 8));
 
@@ -348,15 +406,15 @@ const arrowFor = function (tipBox, targetBox) {
 //a target is often just one line of a block: #result sits directly on top of the
 //timezone. A tip below has to hang off the bottom of the whole block, or both it
 //and its arrow land on the line underneath
-const tipAnchor = function (tip) {
+const armBox = function (arm, side) {
 
-    let box = tip.target.getBoundingClientRect();
+    let box = arm.target.getBoundingClientRect();
 
-    if (tip.side !== 'below' || null == tip.target.parentElement) {
+    if (side !== 'below' || null == arm.target.parentElement) {
         return box;
     }
 
-    let bottom = Math.min(tip.target.parentElement.getBoundingClientRect().bottom, box.bottom + 80);
+    let bottom = Math.min(arm.target.parentElement.getBoundingClientRect().bottom, box.bottom + 80);
 
     if (bottom <= box.bottom) {
         return box;
@@ -372,14 +430,27 @@ const tipAnchor = function (tip) {
     };
 };
 
+//the bubble is placed against everything it points at, each arrow then aims at
+//its own target
+const unionBox = function (boxes) {
+
+    let left = Math.min.apply(null, boxes.map(b => b.left)),
+        top = Math.min.apply(null, boxes.map(b => b.top)),
+        right = Math.max.apply(null, boxes.map(b => b.right)),
+        bottom = Math.max.apply(null, boxes.map(b => b.bottom));
+
+    return {left: left, top: top, right: right, bottom: bottom, width: right - left, height: bottom - top};
+};
+
+const tipBoxes = function (tip) {
+    return tip.arms.map(arm => armBox(arm, tip.side));
+};
+
 const geometryKey = function () {
 
-    return tutorialTips.map(tip => {
-
-        let b = tipAnchor(tip);
-
+    return tutorialTips.map(tip => tipBoxes(tip).map(b => {
         return Math.round(b.left) + ',' + Math.round(b.top) + ',' + Math.round(b.width) + ',' + Math.round(b.height);
-    }).join('|');
+    }).join(',')).join('|');
 };
 
 //one read pass, then one write pass - never a read after a write
@@ -393,39 +464,46 @@ const layoutTips = function () {
         vw = window.innerWidth,
         vh = window.innerHeight,
         gap = Math.max(18, Math.min(TUTORIAL_GAP, vw * 0.06)),
-        measured = tutorialTips.map(tip => ({
-            box: tipAnchor(tip),
-            w: tip.el.offsetWidth * scale,
-            h: tip.el.offsetHeight * scale
-        }));
+        measured = tutorialTips.map(tip => {
 
-    tutorialGeometry = measured.map(m => Math.round(m.box.left) + ',' + Math.round(m.box.top) + ',' + Math.round(m.box.width) + ',' + Math.round(m.box.height)).join('|');
+            let boxes = tipBoxes(tip);
+
+            return {boxes: boxes, box: unionBox(boxes), w: tip.el.offsetWidth * scale, h: tip.el.offsetHeight * scale};
+        });
+
+    tutorialGeometry = measured.map(m => m.boxes.map(b => {
+        return Math.round(b.left) + ',' + Math.round(b.top) + ',' + Math.round(b.width) + ',' + Math.round(b.height);
+    }).join(',')).join('|');
 
     tutorialTips.forEach((tip, i) => {
 
         let m = measured[i],
-            tipBox = tipBoxFor(tip, m.box, m.w, m.h, gap, vw, vh),
-            arrow = arrowFor(tipBox, m.box),
-            from = arrow.from,
-            control = arrow.control,
-            to = arrow.to,
-            length = curveLength(from, control, to) / scale;
+            tipBox = tipBoxFor(tip, m.box, m.w, m.h, gap, vw, vh);
 
         tip.el.style.left = (tipBox.left / scale) + 'px';
         tip.el.style.top = (tipBox.top / scale) + 'px';
 
-        tip.length = length;
-        tip.path.setAttribute('d', 'M ' + (from.x / scale) + ' ' + (from.y / scale) +
-            ' Q ' + (control.x / scale) + ' ' + (control.y / scale) +
-            ' ' + (to.x / scale) + ' ' + (to.y / scale));
+        tip.arms.forEach((arm, n) => {
 
-        let angle = coneAngle(from, control, to, TUTORIAL_CONE_LEN * scale);
+            let arrow = arrowFor(tipBox, m.boxes[n]),
+                from = arrow.from,
+                control = arrow.control,
+                to = arrow.to,
+                length = curveLength(from, control, to) / scale;
 
-        tip.head.setAttribute('transform', 'translate(' + (to.x / scale) + ' ' + (to.y / scale) + ') rotate(' + angle + ')');
+            arm.length = length;
+            arm.path.setAttribute('d', 'M ' + (from.x / scale) + ' ' + (from.y / scale) +
+                ' Q ' + (control.x / scale) + ' ' + (control.y / scale) +
+                ' ' + (to.x / scale) + ' ' + (to.y / scale));
 
-        tip.path.style.transition = 'none';
-        tip.path.style.strokeDasharray = length;
-        tip.path.style.strokeDashoffset = tip.drawn ? 0 : length;
+            let angle = coneAngle(from, control, to, TUTORIAL_CONE_LEN * scale);
+
+            arm.head.setAttribute('transform', 'translate(' + (to.x / scale) + ' ' + (to.y / scale) + ') rotate(' + angle + ')');
+
+            arm.path.style.transition = 'none';
+            arm.path.style.strokeDasharray = length;
+            arm.path.style.strokeDashoffset = tip.drawn ? 0 : length;
+        });
     });
 };
 
@@ -436,17 +514,24 @@ const revealTips = function (arriving) {
         //1. the tooltip
         tip.el.classList.add('show');
 
-        //2. the line draws out of it toward the target
+        //2. the lines draw out of it toward the targets
         tip.timers.push(window.setTimeout(() => {
+
             tip.drawn = true;
-            tip.path.style.transition = 'stroke-dashoffset ' + TUTORIAL_LINE_MS + 'ms ease-out';
-            tip.path.style.strokeDashoffset = 0;
+
+            tip.arms.forEach(arm => {
+                arm.path.style.transition = 'stroke-dashoffset ' + TUTORIAL_LINE_MS + 'ms ease-out';
+                arm.path.style.strokeDashoffset = 0;
+            });
         }, TUTORIAL_TIP_MS));
 
-        //3. the cone lands last
+        //3. the cones land last
         tip.timers.push(window.setTimeout(() => {
-            tip.head.style.transition = 'opacity ' + TUTORIAL_CONE_MS + 'ms ease-out';
-            tip.head.style.opacity = '1';
+
+            tip.arms.forEach(arm => {
+                arm.head.style.transition = 'opacity ' + TUTORIAL_CONE_MS + 'ms ease-out';
+                arm.head.style.opacity = '1';
+            });
         }, TUTORIAL_TIP_MS + TUTORIAL_LINE_MS));
     });
 };
@@ -473,11 +558,6 @@ const tutorialFrame = function () {
 
 
 /* ---------- what a step script can call ---------- */
-
-const clean = function () {
-    hideTips();
-    fadeResult(true);
-};
 
 const fadeResult = function (out) {
 
@@ -573,6 +653,46 @@ const clearResult = function () {
     document.getElementById('calendar-holder').classList.add('hidden');
 };
 
+//the tip retypes itself the way the fields do: back to whatever the two texts
+//still have in common, then forward into the new one. The box resizes on every
+//letter, so the arrow is relaid out with it and never drifts off the bubble
+const retypeTip = async function (tip, text, cancelled) {
+
+    let shared = 0;
+
+    while (shared < tip.text.length && shared < text.length && tip.text[shared] === text[shared]) {
+        shared = shared + 1;
+    }
+
+    const letter = function (cut) {
+        tip.text = cut;
+        tip.body.textContent = cut;
+        layoutTips();
+    };
+
+    for (let i = tip.text.length; i > shared; i--) {
+
+        if (cancelled()) {
+            return;
+        }
+
+        letter(tip.text.slice(0, i - 1));
+
+        await sleep(TUTORIAL_TIP_ERASE_MS);
+    }
+
+    for (let i = shared; i < text.length; i++) {
+
+        if (cancelled()) {
+            return;
+        }
+
+        letter(text.slice(0, i + 1));
+
+        await sleep(TUTORIAL_TIP_TYPE_MS);
+    }
+};
+
 //a tip that stays on the same target and side is kept alive: it re-letters itself
 //in place and the arrow it already drew is never taken down and redrawn
 const showTips = async function (specs, cancelled) {
@@ -583,7 +703,8 @@ const showTips = async function (specs, cancelled) {
 
     specs.forEach(spec => {
 
-        let match = tutorialTips.find(tip => tip.name === spec.target && tip.side === spec.side && staying.indexOf(tip) < 0);
+        let name = (Array.isArray(spec.target) ? spec.target : [spec.target]).join('+'),
+            match = tutorialTips.find(tip => tip.name === name && tip.side === spec.side && staying.indexOf(tip) < 0);
 
         if (null == match) {
             arriving.push(spec);
@@ -591,6 +712,8 @@ const showTips = async function (specs, cancelled) {
         }
 
         staying.push(match);
+        match.pendingKey = spec.key || null;
+        match.shift = spec.shift || 0;
 
         if (match.text !== spec.text) {
             match.pending = spec.text;
@@ -604,21 +727,24 @@ const showTips = async function (specs, cancelled) {
 
     dismissTips(leaving);
 
+    //the cap comes off before the retype and back on after, so the bubble is not
+    //carrying a stale key while it re-letters itself
+    staying.forEach(tip => {
+        if (tip.pendingKey !== tip.key) {
+            setKey(tip, null);
+        }
+    });
+
     if (swapping.length > 0) {
 
-        swapping.forEach(tip => tip.body.classList.add('tutorial-tip-blank'));
-
-        await sleep(TUTORIAL_SWAP_MS);
+        await Promise.all(swapping.map(tip => retypeTip(tip, tip.pending, cancelled)));
 
         if (cancelled()) {
             return;
         }
-
-        swapping.forEach(tip => {
-            tip.text = tip.pending;
-            tip.body.textContent = tip.pending;
-        });
     }
+
+    staying.forEach(tip => setKey(tip, tip.pendingKey));
 
     //staying and tutorialTips are the same array now, so the count has to be
     //taken before addTip starts pushing into it
@@ -635,11 +761,7 @@ const showTips = async function (specs, cancelled) {
         return;
     }
 
-    //the box resizes around the new text while it is still invisible, so the
-    //bubble and its arrow move together instead of drifting apart
     layoutTips();
-
-    swapping.forEach(tip => tip.body.classList.remove('tutorial-tip-blank'));
 
     await tutorialFrame();
 
@@ -663,72 +785,175 @@ const submit = function () {
     fadeResult(false);
 };
 
+const pressKey = async function (cancelled) {
+
+    let cap = document.getElementsByClassName('tutorial-key')[0];
+
+    if (null == cap) {
+        return;
+    }
+
+    for (let i = 0; i < 2; i++) {
+
+        cap.classList.add('tutorial-key-down');
+
+        await sleep(170);
+
+        if (cancelled()) {
+            cap.classList.remove('tutorial-key-down');
+            return;
+        }
+
+        cap.classList.remove('tutorial-key-down');
+
+        await sleep(230);
+
+        if (cancelled()) {
+            return;
+        }
+    }
+};
+
+//steps hand their state to the next one, so a step that only talks about the
+//answer has to put one there when it is jumped into out of order
+const ensureResult = async function (cancelled) {
+
+    if (document.getElementById('result').textContent.trim().length > 0) {
+        return;
+    }
+
+    await type(1, '22.11.1996', cancelled);
+
+    if (cancelled()) {
+        return;
+    }
+
+    await type(2, '33y', cancelled);
+
+    if (cancelled()) {
+        return;
+    }
+
+    submit();
+
+    await sleep(TUTORIAL_BEAT);
+};
+
 
 /* ---------- the steps ---------- */
 
 /**
  * The order of the steps. tutorialIndex is a 0-based index into this array,
  * so inserting a step is just inserting its name here.
+ *
+ * A step never clears the screen for itself: it inherits whatever the previous
+ * one left and changes only what it needs. Steps that keep the same targets and
+ * side keep the same bubble too, which then retypes in place instead of a new
+ * one being drawn.
  */
-const TUTORIAL_ORDER = ['dateMath', 'subtract', 'duration', 'totalDays', 'words', 'share', 'calendar'];
+const TUTORIAL_ORDER = ['fields', 'enter', 'answer', 'units', 'between', 'words', 'share', 'calendar'];
+
+const FIELDS = ['input-1', 'input-2'];
 
 const TUTORIAL_STEPS = {
 
-    async dateMath(cancelled) {
+    async fields(cancelled) {
         await clearFields(cancelled);
         if (cancelled()) return;
 
         await showTips([
-            {target: 'input-1', side: 'above', text: 'Any date, written the way you already write dates'},
-            {target: 'input-2', side: 'right', text: 'How far to jump: 33y, 2M, 10 days, 3 sec'}
+            {target: FIELDS, side: 'above', text: 'Write a date in one field and a value in the other'}
         ], cancelled);
         if (cancelled()) return;
 
-        await sleep(2000);
+        await sleep(TUTORIAL_PAUSE);
         if (cancelled()) return;
 
         await type(1, '22.11.1996', cancelled);
         if (cancelled()) return;
 
-        await sleep(1000);
+        await sleep(TUTORIAL_BEAT);
+        if (cancelled()) return;
+
+        await type(2, '33y', cancelled);
+    },
+
+    //the answer is the payoff of this step, so nothing is on screen until the
+    //cap goes down
+    async enter(cancelled) {
+        clearResult();
+        fadeResult(true);
+
+        await type(1, '22.11.1996', cancelled);
         if (cancelled()) return;
 
         await type(2, '33y', cancelled);
         if (cancelled()) return;
 
-        await sleep(1000);
-
         await showTips([
-            {target: 'input-2', side: 'below', text: 'Cursor in either field, then Enter'}
-        ], cancelled);
-        if (cancelled()) return;
-
-        await sleep(2000);
-
-        hideTips();
-
-        await sleep(500);
-
-        submit();
-
-        await sleep(1000);
-        if (cancelled()) return;
-
-        await showTips([
-            {target: 'result', side: 'below', text: 'The exact date, weekday and month included'}
-        ], cancelled);
-    },
-
-    async subtract(cancelled) {
-        await clearFields(cancelled);
-        if (cancelled()) return;
-
-        await showTips([
-            {target: 'input-2', side: 'right', text: 'Stack units together. A minus turns the whole thing backwards'}
+            {target: FIELDS, side: 'above', text: 'Cursor in either field, then press', key: 'Enter'}
         ], cancelled);
         if (cancelled()) return;
 
         await sleep(TUTORIAL_PAUSE);
+        if (cancelled()) return;
+
+        await pressKey(cancelled);
+        if (cancelled()) return;
+
+        submit();
+    },
+
+    async answer(cancelled) {
+        await ensureResult(cancelled);
+        if (cancelled()) return;
+
+        submit();
+
+        await sleep(TUTORIAL_BEAT);
+        if (cancelled()) return;
+
+        await showTips([
+            {target: 'result', side: 'below', text: 'This is your result!'}
+        ], cancelled);
+    },
+
+    async units(cancelled) {
+        await showTips([
+            {target: 'input-2', side: 'above', text: 'The value takes any unit you like'}
+        ], cancelled);
+        if (cancelled()) return;
+
+        //seconds move nothing a plain date can show, so that one gets a clock
+        let shots = [
+            {date: '22.11.1996', value: '33y'},
+            {date: '22.11.1996', value: '2M'},
+            {date: '22.11.1996', value: '10 days'},
+            {date: '22.11.1996 00:00', value: '3 sec'}
+        ];
+
+        for (let i = 0; i < shots.length; i++) {
+
+            await type(1, shots[i].date, cancelled);
+            if (cancelled()) return;
+
+            await type(2, shots[i].value, cancelled);
+            if (cancelled()) return;
+
+            await sleep(TUTORIAL_BEAT);
+            if (cancelled()) return;
+
+            submit();
+
+            await sleep(TUTORIAL_PAUSE * 1.6);
+            if (cancelled()) return;
+        }
+    },
+
+    async between(cancelled) {
+        await showTips([
+            {target: 'input-2', side: 'above', text: 'A second date instead, and you get the gap between them'}
+        ], cancelled);
         if (cancelled()) return;
 
         await type(1, '22.11.1996', cancelled);
@@ -737,166 +962,47 @@ const TUTORIAL_STEPS = {
         await sleep(TUTORIAL_BEAT);
         if (cancelled()) return;
 
-        await type(2, '-4 weeks 4 days', cancelled);
-        if (cancelled()) return;
-        await sleep(2000);
-
-        hideTips();
-        await sleep(TUTORIAL_BEAT);
-
-        if (cancelled()) return;
-
-        submit();
-
-        await sleep(TUTORIAL_BEAT);
-        if (cancelled()) return;
-
-        await showTips([
-            {target: 'result', side: 'below', text: '4 weeks and 4 days earlier'}
-        ], cancelled);
-    },
-
-    async duration(cancelled) {
-        await clearFields(cancelled);
-        if (cancelled()) return;
-
-        await showTips([
-            {target: 'input-2', side: 'right', text: 'Put a second date here instead of a unit'}
-        ], cancelled);
-        if (cancelled()) return;
-
-        await sleep(TUTORIAL_PAUSE);
-        if (cancelled()) return;
-
-        await type(1, '22.11.1996', cancelled);
-        if (cancelled()) return;
-
-        await sleep(TUTORIAL_BEAT);
-        if (cancelled()) return;
-
-        await type(2, '18.11.2115', cancelled);
-        if (cancelled()) return;
-
-        await sleep(1500);
-        if (cancelled()) return;
-
-        hideTips();
-        await sleep(TUTORIAL_BEAT);
-
-        submit();
-
-        await sleep(TUTORIAL_BEAT);
-        if (cancelled()) return;
-
-        await showTips([
-            {target: 'result', side: 'below', text: 'Now the answer is the distance between them'}
-        ], cancelled);
-    },
-
-    async totalDays(cancelled) {
-        await clearFields(cancelled);
-        if (cancelled()) return;
-
-        await sleep(TUTORIAL_BEAT);
-        if (cancelled()) return;
-
-        await type(1, '10.01.2026', cancelled);
-        if (cancelled()) return;
-
-        await sleep(TUTORIAL_BEAT);
-        if (cancelled()) return;
-
-        await type(2, '10.02.2026', cancelled);
+        await type(2, 'now', cancelled);
         if (cancelled()) return;
 
         await sleep(TUTORIAL_BEAT);
         if (cancelled()) return;
 
         submit();
-
-        await sleep(TUTORIAL_BEAT);
-        if (cancelled()) return;
-
-        await showTips([
-            {target: 'result', side: 'below', text: 'Click a duration to also get it in plain days'}
-        ], cancelled);
-        if (cancelled()) return;
-
-        await sleep(2000);
-        if (cancelled()) return;
-
-        document.getElementById('result').click();
-
-        await showTips([
-            {target: 'result', side: 'below', text: 'Handy when months and weeks only get in the way'}
-        ], cancelled);
     },
 
     async words(cancelled) {
-        await clearFields(cancelled);
-        if (cancelled()) return;
-
         await showTips([
-            {target: 'input-1', side: 'above', text: 'Plain words work too: now, today, tomorrow'},
-            {target: 'input-2', side: 'right', text: 'next friday, last monday, in 3 weeks'}
+            {target: 'input-2', side: 'above', text: 'Plain words count as dates too'}
         ], cancelled);
         if (cancelled()) return;
 
-        await sleep(1000);
+        await type(1, 'today', cancelled);
         if (cancelled()) return;
 
-        await type(1, 'now', cancelled);
-        if (cancelled()) return;
+        let words = ['next friday', 'in 3 weeks', 'last monday'];
 
-        await sleep(1000);
-        if (cancelled()) return;
+        for (let i = 0; i < words.length; i++) {
 
-        await type(2, 'next friday', cancelled);
-        if (cancelled()) return;
+            await type(2, words[i], cancelled);
+            if (cancelled()) return;
 
-        await sleep(2000);
-        if (cancelled()) return;
+            await sleep(TUTORIAL_BEAT);
+            if (cancelled()) return;
 
-        hideTips()
+            submit();
 
-        await sleep(TUTORIAL_BEAT);
-
-        submit();
-
-        await sleep(TUTORIAL_BEAT);
-        if (cancelled()) return;
-
-        await showTips([
-            {target: 'timezone', side: 'below', text: 'Everything is counted in your own timezone, shown right here'}
-        ], cancelled);
+            await sleep(TUTORIAL_PAUSE * 1.6);
+            if (cancelled()) return;
+        }
     },
 
     async share(cancelled) {
-        await clearFields(cancelled);
-        if (cancelled()) return;
-
-        await sleep(TUTORIAL_BEAT);
-        if (cancelled()) return;
-
-        await type(1, '22.11.1996', cancelled);
-        if (cancelled()) return;
-
-        await sleep(TUTORIAL_BEAT);
-        if (cancelled()) return;
-
-        await type(2, '33y', cancelled);
-        if (cancelled()) return;
-
-        await sleep(TUTORIAL_BEAT);
-        if (cancelled()) return;
-
-        submit();
-
-        await sleep(TUTORIAL_BEAT);
+        await ensureResult(cancelled);
         if (cancelled()) return;
 
         await showTips([
-            {target: 'copy-text', side: 'right', text: 'Copies a link with both fields baked in'}
+            {target: 'share', side: 'right', shift: -0.85, text: 'You can share the answer as a link'}
         ], cancelled);
         if (cancelled()) return;
 
@@ -904,19 +1010,11 @@ const TUTORIAL_STEPS = {
         if (cancelled()) return;
 
         showCopied('Copied!');
-
-        await showTips([
-            {target: 'copy-text', side: 'right', text: 'Whoever opens it lands on this exact answer'}
-        ], cancelled);
     },
 
+    //the calendar button only exists while the answer is a date, so this step
+    //has to put one there before it can point at it
     async calendar(cancelled) {
-        await clearFields(cancelled);
-        if (cancelled()) return;
-
-        await sleep(TUTORIAL_BEAT);
-        if (cancelled()) return;
-
         await type(1, 'today', cancelled);
         if (cancelled()) return;
 
@@ -935,7 +1033,7 @@ const TUTORIAL_STEPS = {
         if (cancelled()) return;
 
         await showTips([
-            {target: 'calendar', side: 'right', text: 'When the answer is a date, drop it straight into Google Calendar'}
+            {target: 'calendar', side: 'right', text: 'Or set the date in your calendar'}
         ], cancelled);
     }
 
@@ -974,7 +1072,6 @@ const runTutorialStep = async function (key, version) {
     inputs[0].readOnly = true;
     inputs[1].readOnly = true;
 
-    clean();
     updateCounter();
 
     await step(cancelled);
