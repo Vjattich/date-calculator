@@ -851,7 +851,7 @@ const ensureResult = async function (cancelled) {
  * side keep the same bubble too, which then retypes in place instead of a new
  * one being drawn.
  */
-const TUTORIAL_ORDER = ['fields', 'enter', 'answer', 'units', 'between', 'words', 'share', 'calendar'];
+const TUTORIAL_ORDER = ['fields', 'enter', 'formats', 'answer', 'units', 'between', 'words', 'share', 'calendar'];
 
 const FIELDS = ['input-1', 'input-2'];
 
@@ -902,6 +902,34 @@ const TUTORIAL_STEPS = {
         if (cancelled()) return;
 
         submit();
+    },
+
+    //only the start date changes shape here, the value and the answer stay put -
+    //that is the whole point of the step
+    async formats(cancelled) {
+        await showTips([
+            {target: 'input-1', side: 'above', text: 'It can process any format'}
+        ], cancelled);
+        if (cancelled()) return;
+
+        await type(2, '33y', cancelled);
+        if (cancelled()) return;
+
+        let formats = ['22.11.1996', '11/22/1996', '1996-11-22', '22 Nov 1996'];
+
+        for (let i = 0; i < formats.length; i++) {
+
+            await type(1, formats[i], cancelled);
+            if (cancelled()) return;
+
+            await sleep(TUTORIAL_BEAT);
+            if (cancelled()) return;
+
+            submit();
+
+            await sleep(TUTORIAL_PAUSE * 1.6);
+            if (cancelled()) return;
+        }
     },
 
     async answer(cancelled) {
