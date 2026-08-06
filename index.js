@@ -283,11 +283,7 @@ const focusNext = function (input) {
         next = inputs[inputs.indexOf(input) + 1];
 
     if (null == next) {
-        //closes the soft keyboard so the result is visible
-        if (isMobile()) {
-            input.blur();
-        }
-        return;
+        return false;
     }
 
     next.focus();
@@ -296,6 +292,8 @@ const focusNext = function (input) {
     if ('text' === next.type) {
         next.setSelectionRange(next.value.length, next.value.length);
     }
+
+    return true;
 };
 
 const onKeyDown = function (e) {
@@ -307,9 +305,17 @@ const onKeyDown = function (e) {
     //default 'Go' blurs the field and drops the soft keyboard
     e.preventDefault();
 
+    //enter only moves forward until the last input, submit belongs to it
+    if (focusNext(e.target)) {
+        return;
+    }
+
     runCalc();
 
-    focusNext(e.target);
+    //closes the soft keyboard so the result is visible
+    if (isMobile()) {
+        e.target.blur();
+    }
 };
 
 const makeDiff = function (a, b) {
