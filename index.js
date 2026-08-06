@@ -1,12 +1,9 @@
 const ENTER_KEY = 13;
-
 const NUMBER_POSITION = 1;
 const DATE_INPUT_NUMBER = '1';
 const ADD_INPUT_NUMBER = '2';
-
 const HAS_TIME_REGEX = new RegExp('\\d{2}:\\d{2}:\\d{2}');
 const RUS_DATE_REGEX = new RegExp('\\d{2}([.\\-])\\d{2}([.\\-])(?:\\d{2}|\\d{4}).*');
-
 const UNITS = {
     years: 'years', year: 'year', yrs: 'years', yr: 'year', y: 'year',
     months: 'months', month: 'month', mos: 'months', mo: 'months', M: 'months',
@@ -14,48 +11,68 @@ const UNITS = {
     days: 'days', day: 'day', d: 'days',
     hours: 'hours', hour: 'hour', hrs: 'hours', hr: 'hours', h: 'hours',
     minutes: 'minutes', minute: 'minutes', mins: 'minutes', min: 'minutes', m: 'minutes',
-    seconds: 'seconds', second: 'seconds', secs: 'seconds', sec: 'seconds', s: 'seconds'
+    seconds: 'seconds', second: 'seconds', secs: 'seconds', sec: 'seconds', s: 'seconds',
+
+    годы: 'years', года: 'years', год: 'year', лет: 'years', г: 'year',
+    месяцы: 'months', месяца: 'months', месяц: 'month', месяцев: 'months', мес: 'months',
+    недели: 'weeks', неделя: 'week', недель: 'weeks', нед: 'weeks', н: 'weeks',
+    дни: 'days', дня: 'days', день: 'day', дней: 'days', д: 'days',
+    часы: 'hours', часа: 'hours', час: 'hour', часов: 'hours', ч: 'hours',
+    минуты: 'minutes', минута: 'minutes', минут: 'minutes', мин: 'minutes', м: 'minutes',
+    секунды: 'seconds', секунда: 'seconds', секунд: 'seconds', сек: 'seconds', с: 'seconds'
 };
-
 const UNIT_ORDER = ['years', 'months', 'weeks', 'days', 'hours', 'minutes', 'seconds'];
-
+const RU_WORDS = {
+    щас: 'now',
+    сейчас: 'now',
+    сегодня: 'today',
+    завтра: 'tomorrow',
+    послезавтра: 'in 2 days',
+    вчера: 'yesterday',
+    позавчера: '2 days ago'
+};
+const RU_WORDS_ALTERNATION = Object.keys(RU_WORDS)
+    .sort((a, b) => b.length - a.length)
+    .join('|');
+const RU_WORDS_REGEX = new RegExp('(' + RU_WORDS_ALTERNATION + ')', 'gi');
 const UNIT_ALTERNATION = Object.keys(UNITS)
     .sort((a, b) => b.length - a.length)
     .join('|');
-
+const LETTERS = 'a-zA-Zа-яёА-ЯЁ';
 const DURATION = new RegExp('^\\s*(?:[-+]?\\s*\\d+\\s*(?:' + UNIT_ALTERNATION + ')\\s*)+$', 'i');
-
-const SEGMENT_GLOBAL = new RegExp('\\d+\\s*[a-zA-Z]+', 'g');
-const SEGMENT_PARTS = new RegExp('(\\d+)\\s*([a-zA-Z]+)');
-
+const SEGMENT_GLOBAL = new RegExp('\\d+\\s*[' + LETTERS + ']+', 'g');
+const SEGMENT_PARTS = new RegExp('(\\d+)\\s*([' + LETTERS + ']+)');
 const CLOCK_PATTERN = 'DD.MM.YYYY HH:mm:ss dddd MMMM';
 const DATE_PATTERN = 'DD.MM.YYYY dddd MMMM';
-
 const SHARE_DATE = 'd';
 const SHARE_UNIT = 'u';
-const SHARE_REF = 't';
 const SHARE_ZONE = 'z';
-
 const TOOLTIP_MS = 2000;
 const COPIED_MS = 2000;
-
 const TOOLTIP_TIMERS = {};
-
-const CALENDAR_URL = 'https://calendar.google.com/calendar/render';
 const CALENDAR_MINUTES = 60;
+
+const LOCAL_ZONE = (function () {
+    try {
+        return Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+    } catch (e) {
+        return '';
+    }
+})();
+
+const MOBILE_QUERY = window.matchMedia('(max-width: 768px)');
 
 let LAST_DURATION = false;
 let LAST_DATE = null;
 let LAST_TITLE = '';
 let LAST_ZONE = '';
 
-let SHARED_REFERENCE = null;
 let SHARED_ZONE = null;
 
 let copiedTimerId = null;
 
 const isMobile = function () {
-    return window.matchMedia('(max-width: 768px)').matches;
+    return MOBILE_QUERY.matches;
 };
 
 const toElement = function (elements) {
@@ -145,21 +162,12 @@ const flashTooltip = function (id) {
     }, TOOLTIP_MS);
 };
 
-const localZone = function () {
-    try {
-        return Intl.DateTimeFormat().resolvedOptions().timeZone || '';
-    } catch (e) {
-        return '';
-    }
-};
-
 const zoneLabel = function (momentDate) {
 
-    let zone = localZone(),
-        offset = 'UTC' + momentDate.format('Z'),
-        label = zone ? zone + ' (' + offset + ')' : offset;
+    let offset = 'UTC' + momentDate.format('Z'),
+        label = LOCAL_ZONE ? LOCAL_ZONE + ' (' + offset + ')' : offset;
 
-    if (SHARED_ZONE && SHARED_ZONE !== zone) {
+    if (SHARED_ZONE && SHARED_ZONE !== LOCAL_ZONE) {
         return label + ' · shared from ' + SHARED_ZONE;
     }
 
@@ -170,6 +178,7 @@ const zoneLabel = function (momentDate) {
 const hasClockUnit = function (momentDate) {
     return 0 !== (momentDate.hours() || momentDate.minutes() || momentDate.seconds());
 }
+
 const formatMoment = function (momentDate) {
     return momentDate.format(hasClockUnit(momentDate) ? CLOCK_PATTERN : DATE_PATTERN);
 };
@@ -260,20 +269,47 @@ const renderResult = function (text) {
 
 const runCalc = function () {
 
-    let inputs = Array.from(document.getElementsByClassName('input'));
+    let inputs = Array.from(document.getElementsByClassName('input')),
+        text = calcRes(inputs);
 
-    renderResult(calcRes(inputs, SHARED_REFERENCE));
+    renderResult(text);
+
+    return text;
 };
 
-const onKeyUp = function (e) {
+const focusNext = function (input) {
 
-    let isEnterPress = ENTER_KEY === e.keyCode;
+    let inputs = Array.from(document.getElementsByClassName('input')),
+        next = inputs[inputs.indexOf(input) + 1];
 
-    if (!isEnterPress) {
+    if (null == next) {
+        //closes the soft keyboard so the result is visible
+        if (isMobile()) {
+            input.blur();
+        }
         return;
     }
 
+    next.focus();
+
+    //ios puts the caret at 0 on programmatic focus
+    if ('text' === next.type) {
+        next.setSelectionRange(next.value.length, next.value.length);
+    }
+};
+
+const onKeyDown = function (e) {
+
+    if ('Enter' !== e.key && ENTER_KEY !== e.keyCode) {
+        return;
+    }
+
+    //default 'Go' blurs the field and drops the soft keyboard
+    e.preventDefault();
+
     runCalc();
+
+    focusNext(e.target);
 };
 
 const makeDiff = function (a, b) {
@@ -323,7 +359,14 @@ const formatDuration = function (duration, date1, date2, showDays) {
     return result.trim();
 };
 
+//chrono has no russian locale, so swap the words it knows about before parsing
+const translate = function (string) {
+    return string.replace(RU_WORDS_REGEX, match => RU_WORDS[match.toLowerCase()]);
+};
+
 const parseDate = function (string, /*for tests*/ referenceDate) {
+
+    string = translate(string);
 
     if (DURATION.test(string)) {
         return null;
@@ -337,14 +380,13 @@ const parseDate = function (string, /*for tests*/ referenceDate) {
         string = HAS_TIME_REGEX.test(string) ? string : string + ' 00:00:00';
     }
 
-    //не понятно почему либа сама это не умеет
+    //chrono default is month-first (US), en_GB is day-first
     if (RUS_DATE_REGEX.test(string)) {
         return chrono.en_GB.parse(string, referenceDate, {forwardDate: true})[0];
     }
 
     return chrono.parse(string, referenceDate, params)[0];
 };
-
 
 const fixDate = function (chronoObj, momentDate) {
 
@@ -354,7 +396,6 @@ const fixDate = function (chronoObj, momentDate) {
 
     return momentDate;
 };
-
 
 const buildCalendarUrl = function () {
 
@@ -374,13 +415,11 @@ const buildCalendarUrl = function () {
         params.set('dates', start.format('YYYYMMDD') + '/' + start.clone().add(1, 'day').format('YYYYMMDD'));
     }
 
-    let zone = localZone();
-
-    if (zone) {
-        params.set('ctz', zone);
+    if (LOCAL_ZONE) {
+        params.set('ctz', LOCAL_ZONE);
     }
 
-    return CALENDAR_URL + '?' + params.toString();
+    return 'https://calendar.google.com/calendar/render?' + params.toString();
 };
 
 const onCalendar = function () {
@@ -405,12 +444,9 @@ const buildShareUrl = function () {
 
     params.set(SHARE_DATE, inputs[0].value.trim());
     params.set(SHARE_UNIT, inputs[1].value.trim());
-    params.set(SHARE_REF, String(Date.now()));
 
-    let zone = localZone();
-
-    if (zone) {
-        params.set(SHARE_ZONE, zone);
+    if (LOCAL_ZONE) {
+        params.set(SHARE_ZONE, LOCAL_ZONE);
     }
 
     return baseUrl() + '?' + params.toString();
@@ -418,29 +454,11 @@ const buildShareUrl = function () {
 
 const copyText = function (text) {
 
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-        return navigator.clipboard.writeText(text);
+    if (!navigator.clipboard) {
+        return Promise.reject();
     }
 
-    return new Promise((resolve, reject) => {
-
-        let area = document.createElement('textarea');
-
-        area.value = text;
-        area.setAttribute('readonly', '');
-        area.style.position = 'fixed';
-        area.style.opacity = '0';
-
-        document.body.appendChild(area);
-        area.select();
-
-        //fix deprecated
-        const copied = document.execCommand('copy');
-
-        document.body.removeChild(area);
-
-        copied ? resolve() : reject();
-    });
+    return navigator.clipboard.writeText(text);
 };
 
 const showCopied = function (text) {
@@ -467,6 +485,11 @@ const onShare = function () {
         return;
     }
 
+    //nothing to share until it parses; calcRes flashes the tooltip itself
+    if (!runCalc()) {
+        return;
+    }
+
     let url = buildShareUrl();
 
     history.replaceState(null, '', url);
@@ -478,11 +501,10 @@ const onShare = function () {
 
 const clearSharedState = function () {
 
-    if (null == SHARED_REFERENCE && null == SHARED_ZONE) {
+    if (null == SHARED_ZONE) {
         return;
     }
 
-    SHARED_REFERENCE = null;
     SHARED_ZONE = null;
 
     history.replaceState(null, '', baseUrl());
@@ -502,24 +524,20 @@ const applySharedState = function () {
     inputs[0].value = date;
     inputs[1].value = params.get(SHARE_UNIT) || '';
 
-    let ref = Number(params.get(SHARE_REF));
-
-    SHARED_REFERENCE = Number.isFinite(ref) && ref > 0 ? new Date(ref) : null;
     SHARED_ZONE = params.get(SHARE_ZONE);
 
     return true;
 };
 
-
-//check requests to other sites
 window.onload = function () {
 
     let inputs = Array.from(document.getElementsByClassName('input'));
 
-    inputs.forEach(input => {
+    inputs.forEach((input, i) => {
         //cleans at refresh
         input.value = null;
-        input.addEventListener('keyup', onKeyUp)
+        input.setAttribute('enterkeyhint', i === inputs.length - 1 ? 'done' : 'next');
+        input.addEventListener('keydown', onKeyDown)
     })
 
     document.getElementById('share-btn').addEventListener('click', onShare);
