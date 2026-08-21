@@ -14,497 +14,223 @@
 
     QUnit.module('page', () => {
 
+        const makeInputs = function (first, second) {
+
+            let input_1 = document.createElement('input');
+            input_1.classList.add('input', '1')
+            input_1.value = first
+
+            let input_2 = document.createElement('input');
+            input_2.classList.add('input', '2')
+            input_2.value = second
+
+            return [input_1, input_2];
+        };
+
         QUnit.test('full logic test', assert => {
 
+            const REFERENCE = new Date(1996, 10, 22);
+
             //GIVEN
-            let case1_1 = document.createElement('input');
-            case1_1.classList.add('input', '1')
-            case1_1.value = '22.11.1996'
-
-            let case1_2 = document.createElement('input');
-            case1_2.classList.add('input', '2')
-            case1_2.value = '- 40 weeks'
-
-            let case2_1 = document.createElement('input');
-            case2_1.classList.add('input', '1')
-            case2_1.value = '22.11.1996'
-
-            let case2_2 = document.createElement('input');
-            case2_2.classList.add('input', '2')
-            case2_2.value = '-40 weeks'
-
-            let case3_1 = document.createElement('input');
-            case3_1.classList.add('input', '1')
-            case3_1.value = '22.11.1996'
-
-            let case3_2 = document.createElement('input');
-            case3_2.classList.add('input', '2')
-            case3_2.value = '40 weeks'
-
-            let case4_1 = document.createElement('input');
-            case4_1.classList.add('input', '1')
-            case4_1.value = '22.11.1996'
-
-            let case4_2 = document.createElement('input');
-            case4_2.classList.add('input', '2')
-            case4_2.value = '-4 weeks 4 days'
-
-            let case5_1 = document.createElement('input');
-            case5_1.classList.add('input', '1')
-            case5_1.value = '02.05.26 22.00'
-
-            let case5_2 = document.createElement('input');
-            case5_2.classList.add('input', '2')
-            case5_2.value = '18h30m'
-
-            let case6_1 = document.createElement('input');
-            case6_1.classList.add('input', '1')
-            case6_1.value = '02.05.26 22.00'
-
-            let case6_2 = document.createElement('input');
-            case6_2.classList.add('input', '2')
-            case6_2.value = '18 hours 45 minutes'
-
-            let case7_1 = document.createElement('input');
-            case7_1.classList.add('input', '1')
-            case7_1.value = '22.11.1996 00.00'
-
-            let case7_2 = document.createElement('input');
-            case7_2.classList.add('input', '2')
-            case7_2.value = '3 sec'
-
-            let case8_1 = document.createElement('input');
-            case8_1.classList.add('input', '1')
-            case8_1.value = '22 Nov 1996'
-
-            let case8_2 = document.createElement('input');
-            case8_2.classList.add('input', '2')
-            case8_2.value = '33y'
-
-            let case9_1 = document.createElement('input');
-            case9_1.classList.add('input', '1')
-            case9_1.value = '22.11.1996'
-
-            let case9_2 = document.createElement('input');
-            case9_2.classList.add('input', '2')
-            case9_2.value = '1 год'
-
-            let case10_1 = document.createElement('input');
-            case10_1.classList.add('input', '1')
-            case10_1.value = '22.11.1996'
-
-            let case10_2 = document.createElement('input');
-            case10_2.classList.add('input', '2')
-            case10_2.value = '1 года'
-
-            let case11_1 = document.createElement('input');
-            case11_1.classList.add('input', '1')
-            case11_1.value = '22.11.1996'
-
-            let case11_2 = document.createElement('input');
-            case11_2.classList.add('input', '2')
-            case11_2.value = '1 годы'
-
-            let case12_1 = document.createElement('input');
-            case12_1.classList.add('input', '1')
-            case12_1.value = '22.11.1996'
-
-            let case12_2 = document.createElement('input');
-            case12_2.classList.add('input', '2')
-            case12_2.value = '1 лет'
-
-            let case13_1 = document.createElement('input');
-            case13_1.classList.add('input', '1')
-            case13_1.value = '22.11.1996'
-
-            let case13_2 = document.createElement('input');
-            case13_2.classList.add('input', '2')
-            case13_2.value = '1 г'
-
-            let case14_1 = document.createElement('input');
-            case14_1.classList.add('input', '1')
-            case14_1.value = '22.11.1996'
-
-            let case14_2 = document.createElement('input');
-            case14_2.classList.add('input', '2')
-            case14_2.value = '1 месяц'
-
-            let case15_1 = document.createElement('input');
-            case15_1.classList.add('input', '1')
-            case15_1.value = '22.11.1996'
-
-            let case15_2 = document.createElement('input');
-            case15_2.classList.add('input', '2')
-            case15_2.value = '1 месяца'
-
-            let case16_1 = document.createElement('input');
-            case16_1.classList.add('input', '1')
-            case16_1.value = '22.11.1996'
-
-            let case16_2 = document.createElement('input');
-            case16_2.classList.add('input', '2')
-            case16_2.value = '1 месяцы'
-
-            let case17_1 = document.createElement('input');
-            case17_1.classList.add('input', '1')
-            case17_1.value = '22.11.1996'
-
-            let case17_2 = document.createElement('input');
-            case17_2.classList.add('input', '2')
-            case17_2.value = '1 месяцев'
-
-            let case18_1 = document.createElement('input');
-            case18_1.classList.add('input', '1')
-            case18_1.value = '22.11.1996'
-
-            let case18_2 = document.createElement('input');
-            case18_2.classList.add('input', '2')
-            case18_2.value = '1 мес'
-
-            let case19_1 = document.createElement('input');
-            case19_1.classList.add('input', '1')
-            case19_1.value = '22.11.1996'
-
-            let case19_2 = document.createElement('input');
-            case19_2.classList.add('input', '2')
-            case19_2.value = '1 неделя'
-
-            let case20_1 = document.createElement('input');
-            case20_1.classList.add('input', '1')
-            case20_1.value = '22.11.1996'
-
-            let case20_2 = document.createElement('input');
-            case20_2.classList.add('input', '2')
-            case20_2.value = '1 недели'
-
-            let case21_1 = document.createElement('input');
-            case21_1.classList.add('input', '1')
-            case21_1.value = '22.11.1996'
-
-            let case21_2 = document.createElement('input');
-            case21_2.classList.add('input', '2')
-            case21_2.value = '1 недель'
-
-            let case22_1 = document.createElement('input');
-            case22_1.classList.add('input', '1')
-            case22_1.value = '22.11.1996'
-
-            let case22_2 = document.createElement('input');
-            case22_2.classList.add('input', '2')
-            case22_2.value = '1 нед'
-
-            let case23_1 = document.createElement('input');
-            case23_1.classList.add('input', '1')
-            case23_1.value = '22.11.1996'
-
-            let case23_2 = document.createElement('input');
-            case23_2.classList.add('input', '2')
-            case23_2.value = '1 н'
-
-            let case24_1 = document.createElement('input');
-            case24_1.classList.add('input', '1')
-            case24_1.value = '22.11.1996'
-
-            let case24_2 = document.createElement('input');
-            case24_2.classList.add('input', '2')
-            case24_2.value = '1 день'
-
-            let case25_1 = document.createElement('input');
-            case25_1.classList.add('input', '1')
-            case25_1.value = '22.11.1996'
-
-            let case25_2 = document.createElement('input');
-            case25_2.classList.add('input', '2')
-            case25_2.value = '1 дня'
-
-            let case26_1 = document.createElement('input');
-            case26_1.classList.add('input', '1')
-            case26_1.value = '22.11.1996'
-
-            let case26_2 = document.createElement('input');
-            case26_2.classList.add('input', '2')
-            case26_2.value = '1 дни'
-
-            let case27_1 = document.createElement('input');
-            case27_1.classList.add('input', '1')
-            case27_1.value = '22.11.1996'
-
-            let case27_2 = document.createElement('input');
-            case27_2.classList.add('input', '2')
-            case27_2.value = '1 дней'
-
-            let case28_1 = document.createElement('input');
-            case28_1.classList.add('input', '1')
-            case28_1.value = '22.11.1996'
-
-            let case28_2 = document.createElement('input');
-            case28_2.classList.add('input', '2')
-            case28_2.value = '1 д'
-
-            let case29_1 = document.createElement('input');
-            case29_1.classList.add('input', '1')
-            case29_1.value = '22.11.1996'
-
-            let case29_2 = document.createElement('input');
-            case29_2.classList.add('input', '2')
-            case29_2.value = '1 час'
-
-            let case30_1 = document.createElement('input');
-            case30_1.classList.add('input', '1')
-            case30_1.value = '22.11.1996'
-
-            let case30_2 = document.createElement('input');
-            case30_2.classList.add('input', '2')
-            case30_2.value = '1 часа'
-
-            let case31_1 = document.createElement('input');
-            case31_1.classList.add('input', '1')
-            case31_1.value = '22.11.1996'
-
-            let case31_2 = document.createElement('input');
-            case31_2.classList.add('input', '2')
-            case31_2.value = '1 часы'
-
-            let case32_1 = document.createElement('input');
-            case32_1.classList.add('input', '1')
-            case32_1.value = '22.11.1996'
-
-            let case32_2 = document.createElement('input');
-            case32_2.classList.add('input', '2')
-            case32_2.value = '1 часов'
-
-            let case33_1 = document.createElement('input');
-            case33_1.classList.add('input', '1')
-            case33_1.value = '22.11.1996'
-
-            let case33_2 = document.createElement('input');
-            case33_2.classList.add('input', '2')
-            case33_2.value = '1 ч'
-
-            let case34_1 = document.createElement('input');
-            case34_1.classList.add('input', '1')
-            case34_1.value = '22.11.1996'
-
-            let case34_2 = document.createElement('input');
-            case34_2.classList.add('input', '2')
-            case34_2.value = '1 минута'
-
-            let case35_1 = document.createElement('input');
-            case35_1.classList.add('input', '1')
-            case35_1.value = '22.11.1996'
-
-            let case35_2 = document.createElement('input');
-            case35_2.classList.add('input', '2')
-            case35_2.value = '1 минуты'
-
-            let case36_1 = document.createElement('input');
-            case36_1.classList.add('input', '1')
-            case36_1.value = '22.11.1996'
-
-            let case36_2 = document.createElement('input');
-            case36_2.classList.add('input', '2')
-            case36_2.value = '1 минут'
-
-            let case37_1 = document.createElement('input');
-            case37_1.classList.add('input', '1')
-            case37_1.value = '22.11.1996'
-
-            let case37_2 = document.createElement('input');
-            case37_2.classList.add('input', '2')
-            case37_2.value = '1 мин'
-
-            let case38_1 = document.createElement('input');
-            case38_1.classList.add('input', '1')
-            case38_1.value = '22.11.1996'
-
-            let case38_2 = document.createElement('input');
-            case38_2.classList.add('input', '2')
-            case38_2.value = '1 м'
-
-            let case39_1 = document.createElement('input');
-            case39_1.classList.add('input', '1')
-            case39_1.value = '22.11.1996'
-
-            let case39_2 = document.createElement('input');
-            case39_2.classList.add('input', '2')
-            case39_2.value = '1 секунда'
-
-            let case40_1 = document.createElement('input');
-            case40_1.classList.add('input', '1')
-            case40_1.value = '22.11.1996'
-
-            let case40_2 = document.createElement('input');
-            case40_2.classList.add('input', '2')
-            case40_2.value = '1 секунды'
-
-            let case41_1 = document.createElement('input');
-            case41_1.classList.add('input', '1')
-            case41_1.value = '22.11.1996'
-
-            let case41_2 = document.createElement('input');
-            case41_2.classList.add('input', '2')
-            case41_2.value = '1 секунд'
-
-            let case42_1 = document.createElement('input');
-            case42_1.classList.add('input', '1')
-            case42_1.value = '22.11.1996'
-
-            let case42_2 = document.createElement('input');
-            case42_2.classList.add('input', '2')
-            case42_2.value = '1 сек'
-
-            let case43_1 = document.createElement('input');
-            case43_1.classList.add('input', '1')
-            case43_1.value = '22.11.1996'
-
-            let case43_2 = document.createElement('input');
-            case43_2.classList.add('input', '2')
-            case43_2.value = '1 с'
-
-            let case44_1 = document.createElement('input');
-            case44_1.classList.add('input', '1')
-            case44_1.value = '22.11.1996'
-
-            let case44_2 = document.createElement('input');
-            case44_2.classList.add('input', '2')
-            case44_2.value = '3 месяца'
-
-            let case45_1 = document.createElement('input');
-            case45_1.classList.add('input', '1')
-            case45_1.value = '22.11.1996'
-
-            let case45_2 = document.createElement('input');
-            case45_2.classList.add('input', '2')
-            case45_2.value = '-1 неделя'
-
-            let case46_1 = document.createElement('input');
-            case46_1.classList.add('input', '1')
-            case46_1.value = '22.11.1996'
-
-            let case46_2 = document.createElement('input');
-            case46_2.classList.add('input', '2')
-            case46_2.value = '- 1 неделя'
-
-            let case47_1 = document.createElement('input');
-            case47_1.classList.add('input', '1')
-            case47_1.value = '22.11.1996'
-
-            let case47_2 = document.createElement('input');
-            case47_2.classList.add('input', '2')
-            case47_2.value = '1д'
-
-            let case48_1 = document.createElement('input');
-            case48_1.classList.add('input', '1')
-            case48_1.value = '22.11.1996'
-
-            let case48_2 = document.createElement('input');
-            case48_2.classList.add('input', '2')
-            case48_2.value = '1ч30м'
-
-            let case49_1 = document.createElement('input');
-            case49_1.classList.add('input', '1')
-            case49_1.value = '22.11.1996'
-
-            let case49_2 = document.createElement('input');
-            case49_2.classList.add('input', '2')
-            case49_2.value = '1 день 2 часа 3 минуты'
-
-            let case50_1 = document.createElement('input');
-            case50_1.classList.add('input', '1')
-            case50_1.value = '22.11.1996'
-
-            let case50_2 = document.createElement('input');
-            case50_2.classList.add('input', '2')
-            case50_2.value = '1 week 1 день'
-
-            let case51_1 = document.createElement('input');
-            case51_1.classList.add('input', '1')
-            case51_1.value = '22.11.1996'
-
-            let case51_2 = document.createElement('input');
-            case51_2.classList.add('input', '2')
-            case51_2.value = '1 ДЕНЬ'
-
-            let case52_1 = document.createElement('input');
-            case52_1.classList.add('input', '1')
-            case52_1.value = 'сегодня'
-
-            let case52_2 = document.createElement('input');
-            case52_2.classList.add('input', '2')
-            case52_2.value = '+ 4 дня'
-
-            let case53_1 = document.createElement('input');
-            case53_1.classList.add('input', '1')
-            case53_1.value = 'сейчас'
-
-            let case53_2 = document.createElement('input');
-            case53_2.classList.add('input', '2')
-            case53_2.value = '+ 4 дня'
-
-            let case54_1 = document.createElement('input');
-            case54_1.classList.add('input', '1')
-            case54_1.value = 'щас'
-
-            let case54_2 = document.createElement('input');
-            case54_2.classList.add('input', '2')
-            case54_2.value = '+ 4 дня'
+            let case1 = makeInputs('22.11.1996', '- 40 weeks')
+                , case2 = makeInputs('22.11.1996', '-40 weeks')
+                , case3 = makeInputs('22.11.1996', '40 weeks')
+                , case4 = makeInputs('22.11.1996', '-4 weeks 4 days')
+                , case5 = makeInputs('02.05.26 22.00', '18h30m')
+                , case6 = makeInputs('02.05.26 22.00', '18 hours 45 minutes')
+                , case7 = makeInputs('22.11.1996 00.00', '3 sec')
+                , case8 = makeInputs('22 Nov 1996', '33y')
+                , case9 = makeInputs('22.11.1996', '1 год')
+                , case10 = makeInputs('22.11.1996', '1 года')
+                , case11 = makeInputs('22.11.1996', '1 годы')
+                , case12 = makeInputs('22.11.1996', '1 лет')
+                , case13 = makeInputs('22.11.1996', '1 г')
+                , case14 = makeInputs('22.11.1996', '1 месяц')
+                , case15 = makeInputs('22.11.1996', '1 месяца')
+                , case16 = makeInputs('22.11.1996', '1 месяцы')
+                , case17 = makeInputs('22.11.1996', '1 месяцев')
+                , case18 = makeInputs('22.11.1996', '1 мес')
+                , case19 = makeInputs('22.11.1996', '1 неделя')
+                , case20 = makeInputs('22.11.1996', '1 недели')
+                , case21 = makeInputs('22.11.1996', '1 недель')
+                , case22 = makeInputs('22.11.1996', '1 нед')
+                , case23 = makeInputs('22.11.1996', '1 н')
+                , case24 = makeInputs('22.11.1996', '1 день')
+                , case25 = makeInputs('22.11.1996', '1 дня')
+                , case26 = makeInputs('22.11.1996', '1 дни')
+                , case27 = makeInputs('22.11.1996', '1 дней')
+                , case28 = makeInputs('22.11.1996', '1 д')
+                , case29 = makeInputs('22.11.1996', '1 час')
+                , case30 = makeInputs('22.11.1996', '1 часа')
+                , case31 = makeInputs('22.11.1996', '1 часы')
+                , case32 = makeInputs('22.11.1996', '1 часов')
+                , case33 = makeInputs('22.11.1996', '1 ч')
+                , case34 = makeInputs('22.11.1996', '1 минута')
+                , case35 = makeInputs('22.11.1996', '1 минуты')
+                , case36 = makeInputs('22.11.1996', '1 минут')
+                , case37 = makeInputs('22.11.1996', '1 мин')
+                , case38 = makeInputs('22.11.1996', '1 м')
+                , case39 = makeInputs('22.11.1996', '1 секунда')
+                , case40 = makeInputs('22.11.1996', '1 секунды')
+                , case41 = makeInputs('22.11.1996', '1 секунд')
+                , case42 = makeInputs('22.11.1996', '1 сек')
+                , case43 = makeInputs('22.11.1996', '1 с')
+                , case44 = makeInputs('22.11.1996', '3 месяца')
+                , case45 = makeInputs('22.11.1996', '-1 неделя')
+                , case46 = makeInputs('22.11.1996', '- 1 неделя')
+                , case47 = makeInputs('22.11.1996', '1д')
+                , case48 = makeInputs('22.11.1996', '1ч30м')
+                , case49 = makeInputs('22.11.1996', '1 день 2 часа 3 минуты')
+                , case50 = makeInputs('22.11.1996', '1 week 1 день')
+                , case51 = makeInputs('22.11.1996', '1 ДЕНЬ')
+                , case52 = makeInputs('сегодня', '+ 4 дня')
+                , case53 = makeInputs('сейчас', '+ 4 дня')
+                , case54 = makeInputs('щас', '+ 4 дня')
+
+                //english weekday, in every case the keyboard can produce
+                , case55 = makeInputs('Monday', '')
+                , case56 = makeInputs('monday', '')
+                , case57 = makeInputs('MONDAY', '')
+                , case58 = makeInputs('Mon', '')
+                , case59 = makeInputs('mon', '')
+
+                //russian weekdays, in the forms a russian speaker types
+                , case60 = makeInputs('понедельник', '')
+                , case61 = makeInputs('ПОНЕДЕЛЬНИК', '')
+                , case62 = makeInputs('в понедельник', '')
+                , case63 = makeInputs('пн', '')
+                , case64 = makeInputs('вторник', '')
+                , case65 = makeInputs('вт', '')
+                , case66 = makeInputs('среду', '')
+                , case67 = makeInputs('ср', '')
+                , case68 = makeInputs('четверг', '')
+                , case69 = makeInputs('чт', '')
+
+                //friday is the reference day itself, so chrono picks the day, both spellings only have to agree
+                , case70 = makeInputs('Friday', '')
+                , case71 = makeInputs('пятницу', '')
+                , case72 = makeInputs('пт', '')
+
+                , case73 = makeInputs('субботу', '')
+                , case74 = makeInputs('сб', '')
+                , case75 = makeInputs('воскресенье', '')
+                , case76 = makeInputs('вс', '')
+
+                //a weekday is a date like any other, so it takes units too
+                , case77 = makeInputs('понедельник', '1 день')
+                , case78 = makeInputs('пн', '2 недели')
+
+                //short weekday forms must not fire inside a longer word
+                , case79 = makeInputs('22.11.1996', '5 дней')
+
+                //months, in every case the keyboard can produce
+                , case80 = makeInputs('5 August 2027', '')
+                , case81 = makeInputs('5 august 2027', '')
+                , case82 = makeInputs('5 AUGUST 2027', '')
+                , case83 = makeInputs('5 aug 2027', '')
+
+                //casual words, in every case the keyboard can produce
+                , case84 = makeInputs('today', '')
+                , case85 = makeInputs('TODAY', '')
+                , case86 = makeInputs('Сегодня', '')
+
+                //two dates give a duration, whichever order they come in
+                , case87 = makeInputs('22.11.1996', '29.11.1996')
+                , case88 = makeInputs('29.11.1996', '22.11.1996')
+                , case89 = makeInputs('22.11.1996', '22.11.1996')
+            ;
 
             //WHEN
             let
-                result1 = calcRes([case1_1, case1_2])
-                , result2 = calcRes([case2_1, case2_2])
-                , result3 = calcRes([case3_1, case3_2])
-                , result4 = calcRes([case4_1, case4_2])
-                , result5 = calcRes([case5_1, case5_2])
-                , result6 = calcRes([case6_1, case6_2])
-                , result7 = calcRes([case7_1, case7_2])
-                , result8 = calcRes([case8_1, case8_2])
-                , result9 = calcRes([case9_1, case9_2])
-                , result10 = calcRes([case10_1, case10_2])
-                , result11 = calcRes([case11_1, case11_2])
-                , result12 = calcRes([case12_1, case12_2])
-                , result13 = calcRes([case13_1, case13_2])
-                , result14 = calcRes([case14_1, case14_2])
-                , result15 = calcRes([case15_1, case15_2])
-                , result16 = calcRes([case16_1, case16_2])
-                , result17 = calcRes([case17_1, case17_2])
-                , result18 = calcRes([case18_1, case18_2])
-                , result19 = calcRes([case19_1, case19_2])
-                , result20 = calcRes([case20_1, case20_2])
-                , result21 = calcRes([case21_1, case21_2])
-                , result22 = calcRes([case22_1, case22_2])
-                , result23 = calcRes([case23_1, case23_2])
-                , result24 = calcRes([case24_1, case24_2])
-                , result25 = calcRes([case25_1, case25_2])
-                , result26 = calcRes([case26_1, case26_2])
-                , result27 = calcRes([case27_1, case27_2])
-                , result28 = calcRes([case28_1, case28_2])
-                , result29 = calcRes([case29_1, case29_2])
-                , result30 = calcRes([case30_1, case30_2])
-                , result31 = calcRes([case31_1, case31_2])
-                , result32 = calcRes([case32_1, case32_2])
-                , result33 = calcRes([case33_1, case33_2])
-                , result34 = calcRes([case34_1, case34_2])
-                , result35 = calcRes([case35_1, case35_2])
-                , result36 = calcRes([case36_1, case36_2])
-                , result37 = calcRes([case37_1, case37_2])
-                , result38 = calcRes([case38_1, case38_2])
-                , result39 = calcRes([case39_1, case39_2])
-                , result40 = calcRes([case40_1, case40_2])
-                , result41 = calcRes([case41_1, case41_2])
-                , result42 = calcRes([case42_1, case42_2])
-                , result43 = calcRes([case43_1, case43_2])
-                , result44 = calcRes([case44_1, case44_2])
-                , result45 = calcRes([case45_1, case45_2])
-                , result46 = calcRes([case46_1, case46_2])
-                , result47 = calcRes([case47_1, case47_2])
-                , result48 = calcRes([case48_1, case48_2])
-                , result49 = calcRes([case49_1, case49_2])
-                , result50 = calcRes([case50_1, case50_2])
-                , result51 = calcRes([case51_1, case51_2])
-                , result52 = calcRes([case52_1, case52_2])
-                , result53 = calcRes([case53_1, case53_2])
-                , result54 = calcRes([case54_1, case54_2])
+                result1 = calcRes(case1)
+                , result2 = calcRes(case2)
+                , result3 = calcRes(case3)
+                , result4 = calcRes(case4)
+                , result5 = calcRes(case5)
+                , result6 = calcRes(case6)
+                , result7 = calcRes(case7)
+                , result8 = calcRes(case8)
+                , result9 = calcRes(case9)
+                , result10 = calcRes(case10)
+                , result11 = calcRes(case11)
+                , result12 = calcRes(case12)
+                , result13 = calcRes(case13)
+                , result14 = calcRes(case14)
+                , result15 = calcRes(case15)
+                , result16 = calcRes(case16)
+                , result17 = calcRes(case17)
+                , result18 = calcRes(case18)
+                , result19 = calcRes(case19)
+                , result20 = calcRes(case20)
+                , result21 = calcRes(case21)
+                , result22 = calcRes(case22)
+                , result23 = calcRes(case23)
+                , result24 = calcRes(case24)
+                , result25 = calcRes(case25)
+                , result26 = calcRes(case26)
+                , result27 = calcRes(case27)
+                , result28 = calcRes(case28)
+                , result29 = calcRes(case29)
+                , result30 = calcRes(case30)
+                , result31 = calcRes(case31)
+                , result32 = calcRes(case32)
+                , result33 = calcRes(case33)
+                , result34 = calcRes(case34)
+                , result35 = calcRes(case35)
+                , result36 = calcRes(case36)
+                , result37 = calcRes(case37)
+                , result38 = calcRes(case38)
+                , result39 = calcRes(case39)
+                , result40 = calcRes(case40)
+                , result41 = calcRes(case41)
+                , result42 = calcRes(case42)
+                , result43 = calcRes(case43)
+                , result44 = calcRes(case44)
+                , result45 = calcRes(case45)
+                , result46 = calcRes(case46)
+                , result47 = calcRes(case47)
+                , result48 = calcRes(case48)
+                , result49 = calcRes(case49)
+                , result50 = calcRes(case50)
+                , result51 = calcRes(case51)
+                , result52 = calcRes(case52)
+                , result53 = calcRes(case53)
+                , result54 = calcRes(case54)
+                , result55 = calcRes(case55, REFERENCE)
+                , result56 = calcRes(case56, REFERENCE)
+                , result57 = calcRes(case57, REFERENCE)
+                , result58 = calcRes(case58, REFERENCE)
+                , result59 = calcRes(case59, REFERENCE)
+                , result60 = calcRes(case60, REFERENCE)
+                , result61 = calcRes(case61, REFERENCE)
+                , result62 = calcRes(case62, REFERENCE)
+                , result63 = calcRes(case63, REFERENCE)
+                , result64 = calcRes(case64, REFERENCE)
+                , result65 = calcRes(case65, REFERENCE)
+                , result66 = calcRes(case66, REFERENCE)
+                , result67 = calcRes(case67, REFERENCE)
+                , result68 = calcRes(case68, REFERENCE)
+                , result69 = calcRes(case69, REFERENCE)
+                , result70 = calcRes(case70, REFERENCE)
+                , result71 = calcRes(case71, REFERENCE)
+                , result72 = calcRes(case72, REFERENCE)
+                , result73 = calcRes(case73, REFERENCE)
+                , result74 = calcRes(case74, REFERENCE)
+                , result75 = calcRes(case75, REFERENCE)
+                , result76 = calcRes(case76, REFERENCE)
+                , result77 = calcRes(case77, REFERENCE)
+                , result78 = calcRes(case78, REFERENCE)
+                , result79 = calcRes(case79, REFERENCE)
+                , result80 = calcRes(case80, REFERENCE)
+                , result81 = calcRes(case81, REFERENCE)
+                , result82 = calcRes(case82, REFERENCE)
+                , result83 = calcRes(case83, REFERENCE)
+                , result84 = calcRes(case84, REFERENCE)
+                , result85 = calcRes(case85, REFERENCE)
+                , result86 = calcRes(case86, REFERENCE)
+                , result87 = calcRes(case87)
+                , result88 = calcRes(case88)
+                , result89 = calcRes(case89)
             ;
 
             //THEN
@@ -562,6 +288,50 @@
             assert.notStrictEqual(result52, null);
             assert.notStrictEqual(result53, null);
             assert.notStrictEqual(result54, null);
+
+            assert.equal(result55, '25.11.1996 Monday November');
+            assert.equal(result56, '25.11.1996 Monday November');
+            assert.equal(result57, '25.11.1996 Monday November');
+            assert.equal(result58, '25.11.1996 Monday November');
+            assert.equal(result59, '25.11.1996 Monday November');
+
+            assert.equal(result60, '25.11.1996 Monday November');
+            assert.equal(result61, '25.11.1996 Monday November');
+            assert.equal(result62, '25.11.1996 Monday November');
+            assert.equal(result63, '25.11.1996 Monday November');
+            assert.equal(result64, '26.11.1996 Tuesday November');
+            assert.equal(result65, '26.11.1996 Tuesday November');
+            assert.equal(result66, '27.11.1996 Wednesday November');
+            assert.equal(result67, '27.11.1996 Wednesday November');
+            assert.equal(result68, '28.11.1996 Thursday November');
+            assert.equal(result69, '28.11.1996 Thursday November');
+
+            assert.ok(-1 !== result70.indexOf('Friday November'), result70);
+            assert.equal(result71, result70);
+            assert.equal(result72, result70);
+
+            assert.equal(result73, '23.11.1996 Saturday November');
+            assert.equal(result74, '23.11.1996 Saturday November');
+            assert.equal(result75, '24.11.1996 Sunday November');
+            assert.equal(result76, '24.11.1996 Sunday November');
+
+            assert.equal(result77, '26.11.1996 Tuesday November');
+            assert.equal(result78, '09.12.1996 Monday December');
+
+            assert.equal(result79, '27.11.1996 Wednesday November');
+
+            assert.equal(result80, '05.08.2027 Thursday August');
+            assert.equal(result81, '05.08.2027 Thursday August');
+            assert.equal(result82, '05.08.2027 Thursday August');
+            assert.equal(result83, '05.08.2027 Thursday August');
+
+            assert.equal(result84, '22.11.1996 Friday November');
+            assert.equal(result85, '22.11.1996 Friday November');
+            assert.equal(result86, '22.11.1996 Friday November');
+
+            assert.equal(result87, '7 days');
+            assert.equal(result88, '7 days');
+            assert.equal(result89, '0 days');
         });
 
         QUnit.test('format duration test', assert => {
