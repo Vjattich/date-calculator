@@ -1,10 +1,96 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta name="viewport" content="width=device-width,initial-scale=1.0">
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+
+    <title>Date Calculator — math with the dates</title>
+    <meta name="description"
+          content="Free date calculator. Type a date in plain words, add or subtract days, weeks, months and hours, or count the days between two dates. Works with 25.12.2026, today, next Friday and Russian dates. No sign-up, no ads.">
+
+    <link rel="canonical" href="https://vjattich.github.io/date-calculator/">
+    <meta name="robots" content="index,follow,max-image-preview:large">
+    <meta name="theme-color" content="#ffa500">
+    <meta name="author" content="Vjattich">
+
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Date Calculator">
+    <meta property="og:url" content="https://vjattich.github.io/date-calculator/">
+    <meta property="og:title" content="Date Calculator — math with the dates">
+    <meta property="og:description"
+          content="Type a date in plain words, add or subtract days, weeks and months, or count the days between two dates. Share the result with one link.">
+    <meta property="og:image" content="https://vjattich.github.io/date-calculator/calendar.png">
+    <meta property="og:locale" content="en_US">
+    <meta property="og:locale:alternate" content="ru_RU">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="Date Calculator">
+    <meta name="twitter:description"
+          content="Add days to a date or count the days between two dates, in plain words.">
+    <meta name="twitter:image" content="https://vjattich.github.io/date-calculator/calendar.png">
+
     <link rel="icon" href="calendar.png">
-    <title>Date calculator</title>
+    <link rel="apple-touch-icon" href="calendar.png">
+
+    <script type="application/ld+json">
+        {
+            "@context": "https://schema.org",
+            "@graph": [
+                {
+                    "@type": "WebApplication",
+                    "@id": "https://vjattich.github.io/date-calculator/#app",
+                    "name": "Date Calculator",
+                    "url": "https://vjattich.github.io/date-calculator/",
+                    "applicationCategory": "UtilitiesApplication",
+                    "operatingSystem": "Any browser",
+                    "browserRequirements": "Requires JavaScript",
+                    "inLanguage": ["en", "ru"],
+                    "description": "Date calculator that reads dates written in plain words, adds or subtracts days, weeks, months and hours, and counts the time between two dates.",
+                    "featureList": [
+                        "Add or subtract days, weeks, months, hours and minutes from a date",
+                        "Count the days between two dates",
+                        "Plain language dates: today, tomorrow, next Friday",
+                        "Russian date words",
+                        "Calendar picker",
+                        "Shareable result links",
+                        "Add the result to Google Calendar"
+                    ],
+                    "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
+                    "author": {"@type": "Person", "name": "Vjattich", "url": "https://github.com/Vjattich"}
+                },
+                {
+                    "@type": "FAQPage",
+                    "@id": "https://vjattich.github.io/date-calculator/#faq",
+                    "mainEntity": [
+                        {
+                            "@type": "Question",
+                            "name": "How do I count the days between two dates?",
+                            "acceptedAnswer": {"@type": "Answer", "text": "Put one date in the left field and the other date in the right field. The result is the time between them in years, months and days. Click the result to see the same span as a total number of days."}
+                        },
+                        {
+                            "@type": "Question",
+                            "name": "How do I add or subtract days from a date?",
+                            "acceptedAnswer": {"@type": "Answer", "text": "Put the starting date in the left field and the amount in the right field, for example 90 days, 3 weeks or -2 months 4 hours. The answer is the shifted date with its weekday."}
+                        },
+                        {
+                            "@type": "Question",
+                            "name": "Which date formats are understood?",
+                            "acceptedAnswer": {"@type": "Answer", "text": "Numeric dates such as 25.12.2026 and 2026-12-25, dates with a time such as 25.12.2026 18:30:00, and plain words such as today, tomorrow, next Friday or 3 March. Russian words such as сегодня, завтра and пятница work too."}
+                        },
+                        {
+                            "@type": "Question",
+                            "name": "Which time zone is used?",
+                            "acceptedAnswer": {"@type": "Answer", "text": "Your browser time zone. It is printed under the result, and a shared link carries the time zone it was created in so the other side can see where the numbers came from."}
+                        },
+                        {
+                            "@type": "Question",
+                            "name": "Does it count working days only?",
+                            "acceptedAnswer": {"@type": "Answer", "text": "No. Every day is counted, weekends and holidays included."}
+                        }
+                    ]
+                }
+            ]
+        }
+    </script>
     <style>
 
         :root {
@@ -375,6 +461,22 @@
             height: 40px;
         }
 
+        /* readable by search engines and screen readers, out of the way of the design */
+        .visually-hidden {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            margin: -1px;
+            padding: 0;
+            overflow: hidden;
+            clip: rect(0 0 0 0);
+            clip-path: inset(50%);
+            white-space: nowrap;
+            border: 0;
+        }
+
+
+
         html {
             font-size: 16px;
         }
@@ -706,12 +808,20 @@
     </svg>
 </div>
 <div class="center margin-top-15p font-size-20">
-    <div id="main" style="flex: 1 1 auto">
+    <main id="main" style="flex: 1 1 auto">
+        <h1 class="visually-hidden">Date calculator: add days to a date or count the days between two dates</h1>
+        <noscript>
+            <p>This date calculator needs JavaScript to parse the dates you type. Please enable it and reload the page.</p>
+        </noscript>
         <div id="tooltips">
             <span id="unit-tooltip" class="tooltip-right-up opacity-0">You need to set and unit</span>
         </div>
         <div class="input-row">
-            <input class="input 1"><span style="margin: 0 0.15em;"></span><input class="input 2">
+            <input class="input 1" type="text" autocomplete="off" autocorrect="off" spellcheck="false"
+                   aria-label="Date, for example 25.12.2026 or next Friday"><span
+                style="margin: 0 0.15em;"></span><input class="input 2" type="text" autocomplete="off"
+                                                        autocorrect="off" spellcheck="false"
+                                                        aria-label="Second date, or an amount such as 3 days">
             <span id="date-tooltip" class="tooltip-left-up opacity-0">Can't read this date</span>
         </div>
         <div class="calendar-block">
@@ -730,9 +840,11 @@
             <span class="result-span" id="result"></span>
             <span id="timezone"></span>
         </div>
-    </div>
+    </main>
 </div>
-</body>
+
+
+
 <footer>
     <button class="guide-nav" id="guidePrev">
         <svg fill="var(--ink)" height="40" viewBox="0 0 24 24" width="40" xmlns="http://www.w3.org/2000/svg">
@@ -760,4 +872,5 @@
         });
     })();
 </script>
+</body>
 </html>

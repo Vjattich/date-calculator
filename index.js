@@ -1,4 +1,8 @@
 const ENTER_KEY = 13;
+const TAB_KEY = 9;
+const IME_KEY = 229;
+//anything already listening to the keyboard, so typing never steals a button press
+const INTERACTIVE = 'input, textarea, select, button, a[href], [contenteditable="true"]';
 const NUMBER_POSITION = 1;
 const DATE_INPUT_NUMBER = '1';
 const ADD_INPUT_NUMBER = '2';
@@ -571,7 +575,37 @@ const focusNext = function (input) {
     return true;
 };
 
+//tab is a loop over the two fields, the rest of the page is reached with escape first
+const focusSibling = function (input, back) {
+
+    let inputs = Array.from(document.getElementsByClassName('input')),
+        at = inputs.indexOf(input);
+
+    if (-1 === at) {
+        return;
+    }
+
+    let next = inputs[(at + (back ? -1 : 1) + inputs.length) % inputs.length];
+
+    next.focus();
+
+    //native tab lands with the value selected, so typing replaces it
+    next.select();
+};
+
 const onKeyDown = function (e) {
+
+    if ('Tab' === e.key || TAB_KEY === e.keyCode) {
+        e.preventDefault();
+        focusSibling(e.target, e.shiftKey);
+        return;
+    }
+
+    //a way out of the loop for keyboard users
+    if ('Escape' === e.key) {
+        e.target.blur();
+        return;
+    }
 
     if ('Enter' !== e.key && ENTER_KEY !== e.keyCode) {
         return;
@@ -591,6 +625,48 @@ const onKeyDown = function (e) {
     if (isMobile()) {
         e.target.blur();
     }
+};
+
+const isBusy = function () {
+
+    let active = document.activeElement;
+
+    return null != active && null != active.matches && active.matches(INTERACTIVE);
+};
+
+//one char is a letter or a digit, anything longer is a named key like ArrowLeft
+const isPrintable = function (e) {
+    return 1 === e.key.length && !e.ctrlKey && !e.metaKey && !e.altKey;
+};
+
+const isPaste = function (e) {
+    return 'KeyV' === e.code && (e.ctrlKey || e.metaKey) && !e.altKey;
+};
+
+//desktop only: start typing anywhere and the first field takes it
+const onPageKeyDown = function (e) {
+
+    if (isMobile() || document.body.classList.contains('tutorial-on')) {
+        return;
+    }
+
+    if (e.defaultPrevented || e.isComposing || IME_KEY === e.keyCode || isBusy()) {
+        return;
+    }
+
+    if (!isPrintable(e) && !isPaste(e)) {
+        return;
+    }
+
+    let first = document.getElementsByClassName('input')[0];
+
+    if (null == first) {
+        return;
+    }
+
+    //focus happens on keydown, so the character itself is typed into the field
+    first.focus();
+    first.setSelectionRange(first.value.length, first.value.length);
 };
 
 const makeDiff = function (a, b) {
@@ -829,6 +905,8 @@ window.onload = function () {
         input.setAttribute('enterkeyhint', i === inputs.length - 1 ? 'done' : 'next');
         input.addEventListener('keydown', onKeyDown)
     })
+
+    document.addEventListener('keydown', onPageKeyDown);
 
     document.getElementById('share-btn').addEventListener('click', onShare);
     document.getElementById('calendar-btn').addEventListener('click', onCalendar);
