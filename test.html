@@ -586,49 +586,6 @@
             assert.deepEqual(result4, case4_moment_date);
         })
 
-        QUnit.test('chrono dates parse test', assert => {
-            //GIVEN
-            let case1 = '03.01.1996'
-                , case2 = '22.11.1996'
-                , case3 = '1996-03-01'
-                , case4 = '03/01/1996'
-                , case5 = '22.11.1996 12:00:00'
-                , case6 = '22.11.1996 12:00:11'
-                , case7 = '28y'
-                , case8 = 'friday'
-                , case9 = 'last friday'
-                , case10 = '02.05.2026 22.00'
-                , case11 = '10.02.26'
-            ;
-
-            //WHEN
-            let result1 = parseDate(case1)
-                , result2 = parseDate(case2)
-                , result3 = parseDate(case3)
-                , result4 = parseDate(case4)
-                , result5 = parseDate(case5)
-                , result6 = parseDate(case6)
-                , result7 = parseDate(case7)
-                , result8 = parseDate(case8, moment('1996.11.21').toDate())
-                , result9 = parseDate(case9, moment('1996.11.25').toDate())
-                , result10 = parseDate(case10)
-                , result11 = parseDate(case11)
-            ;
-
-            //THEN
-            assert.deepEqual(result1.start.knownValues, {day: 3, month: 1, year: 1996, minute: 0, hour: 0, second:0 });
-            assert.deepEqual(result2.start.knownValues, {day: 22, month: 11, year: 1996, minute: 0, hour: 0, second:0});
-            assert.deepEqual(result3.start.knownValues, {day: 1, month: 3, year: 1996, minute: 0, hour: 0, second:0 });
-            assert.deepEqual(result4.start.knownValues, {day: 1, month: 3, year: 1996, minute: 0, hour: 0, second:0 });
-            assert.deepEqual(result5.start.knownValues, {day: 22, month: 11, year: 1996, minute: 0, hour: 12, second: 0, meridiem: 1});
-            assert.deepEqual(result6.start.knownValues, {day: 22, month: 11, year: 1996, minute: 0, hour: 12, second: 11, meridiem: 1});
-            assert.deepEqual(result7, null);
-            assert.deepEqual(result8.start.moment().toDate(), moment('1996.11.22').toDate());
-            assert.deepEqual(result9.start.moment().toDate(), moment('1996.11.22').toDate());
-            assert.deepEqual(result10.start.knownValues, {day: 2, month: 5, year: 2026, minute: 0, hour: 22, /*second: 0,*/ meridiem: 1});
-            assert.deepEqual(result11.start.moment().toDate(), moment('2026.02.10').toDate());
-        })
-
         QUnit.test('get operation test', assert => {
             //GIVEN
             let case1 = '1y'

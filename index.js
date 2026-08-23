@@ -70,6 +70,9 @@ const RU_WORDS = {
 };
 
 const RU_LETTERS = 'а-яёА-ЯЁ';
+//one cheap look before the three russian passes, an english string skips all of them
+const HAS_RU_REGEX = new RegExp('[' + RU_LETTERS + ']');
+const RU_ONLY_REGEX = new RegExp('^[' + RU_LETTERS + ']+$');
 const RU_WORDS_ALTERNATION = Object.keys(RU_WORDS)
     .sort((a, b) => b.length - a.length)
     .join('|');
@@ -91,7 +94,7 @@ const SEGMENT_GLOBAL = new RegExp('\\d+\\s*[' + LETTERS + ']+', 'g');
 const SEGMENT_PARTS = new RegExp('(\\d+)\\s*([' + LETTERS + ']+)');
 //the spelled-out russian units only, single letters are too easy to hit by accident
 const RU_UNIT_ALTERNATION = Object.keys(UNITS)
-    .filter(unit => 1 < unit.length && new RegExp('^[' + RU_LETTERS + ']+$').test(unit))
+    .filter(unit => 1 < unit.length && RU_ONLY_REGEX.test(unit))
     .sort((a, b) => b.length - a.length)
     .join('|');
 const RU_IN_REGEX = new RegExp('через\\s+(\\d+)\\s*(' + RU_UNIT_ALTERNATION + ')(?![' + RU_LETTERS + '])', 'gi');
@@ -109,12 +112,14 @@ const COPIED_MS = 2000;
 const TOOLTIP_TIMERS = {};
 const CALENDAR_MINUTES = 60;
 const CAL_DOW = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
+//the weekday row never changes, so it is built once instead of on every render
+const CAL_DOW_HTML = CAL_DOW.map(name => '<span class="cal-dow">' + name + '</span>').join('');
 const CAL_CELLS = 42;
 const CAL_KEY = 'YYYY-MM-DD';
 const CAL_INPUT_PATTERN = 'DD.MM.YYYY';
+const PLAIN_DATE_REGEX = new RegExp('^\\d{2}\\.\\d{2}\\.\\d{4}$');
 //"* 2 days", "every 2 weeks", "каждые 3 дня" — the second field turns into a repeat step
 const PATTERN_REGEX = new RegExp('^\\s*(?:\\*|x|х|every|each|кажд[а-яё]*)\\s*(.+)$', 'i');
-//picked days live in the first field, one date per comma
 const SEED_SEPARATOR = ',';
 //a step of one day still has to stop somewhere, otherwise a far seed loops forever
 const PATTERN_LIMIT = 4000;
@@ -137,6 +142,9 @@ const LOCAL_ZONE = (function () {
 })();
 
 const MOBILE_QUERY = window.matchMedia('(max-width: 768px)');
+
+//a live collection, so the two fields are looked up once for the whole page
+const INPUTS = document.getElementsByClassName('input');
 
 let LAST_DURATION = false;
 let LAST_DATE = null;
@@ -174,12 +182,17 @@ const isMobile = function () {
 };
 
 const toElement = function (elements) {
-    return elements
-        .map(e => ({value: e.value, pos: e.classList[NUMBER_POSITION], self: e}))
-        .reduce((acc, e) => {
-            acc[e.pos] = e;
-            return acc;
-        }, {});
+
+    let map = {};
+
+    for (let i = 0; i < elements.length; i++) {
+
+        let pos = elements[i].classList[NUMBER_POSITION];
+
+        map[pos] = {value: elements[i].value, pos: pos};
+    }
+
+    return map;
 };
 
 const isKnownUnit = function (unit) {
@@ -291,10 +304,6 @@ const keepDate = function (momentDate, title) {
 };
 
 //the same shape the first field uses, so an answer can be pasted straight back in
-const formatPick = function (momentDate) {
-    return momentDate.format(CAL_INPUT_PATTERN) + (hasClockUnit(momentDate) ? momentDate.format(' HH:mm:ss') : '');
-};
-
 const keepDates = function (moments, title) {
 
     LAST_DATES = moments.map(one => one.clone());
@@ -303,6 +312,10 @@ const keepDates = function (moments, title) {
     LAST_TITLE = title;
 
     return LAST_DATES.map(formatPick).join(SEED_SEPARATOR + ' ');
+};
+
+const formatPick = function (momentDate) {
+    return momentDate.format(CAL_INPUT_PATTERN) + (hasClockUnit(momentDate) ? momentDate.format(' HH:mm:ss') : '');
 };
 
 //a repeat has no direction and cannot stand still, "* -2 days" is the same as "* 2 days"
@@ -335,10 +348,10 @@ const stepLabel = function () {
     return PATTERN_CYCLE.map(op => op.num + ' ' + op.unit).join(' ');
 };
 
-//how many whole units of the step the picked days themselves cover
 const blockUnits = function (first, last, unit) {
 
-    let units = 1;
+    //diff lands on or just under the answer, so the walk that follows is a step or two, not a year
+    let units = Math.max(1, last.diff(first, unit));
 
     while (units < PATTERN_LIMIT && !first.clone().add(units, unit).isAfter(last, 'day')) {
         units++;
@@ -427,20 +440,28 @@ const seedKeys = function (value, referenceDate) {
     return null == found ? [] : found.map(one => one.format(CAL_KEY));
 };
 
-//the grid reads the picks straight off the field, so typing and clicking cannot drift apart
+let PICKED_CACHE = {value: null, keys: new Set()};
 const pickedKeys = function () {
 
-    let input = document.getElementsByClassName('input')[0];
+    let input = INPUTS[0];
 
-    return null == input ? [] : seedKeys(input.value.trim());
+    if (null == input) {
+        return new Set();
+    }
+
+    let value = input.value.trim();
+
+    if (value !== PICKED_CACHE.value) {
+        PICKED_CACHE = {value: value, keys: new Set(seedKeys(value))};
+    }
+
+    return PICKED_CACHE.keys;
 };
 
-//the whole block moves together, so every picked day gets the same cycle added to it
 const findNextDates = function () {
     return PATTERN_SEEDS.map(seed => stepBy(seed, 1));
 };
 
-//only the repeats the grid can actually show, walked out from every seed
 const patternMarks = function (month) {
 
     let marks = new Set();
@@ -450,15 +471,23 @@ const patternMarks = function (month) {
     }
 
     let from = firstCell(month),
-        to = from.clone().add(CAL_CELLS - 1, 'days');
+        //the window resolved to milliseconds once, so the walk below is a number compare per step
+        fromMs = from.valueOf(),
+        toMs = from.clone().add(CAL_CELLS, 'days').valueOf() - 1;
 
     for (let i = 0; i < PATTERN_SEEDS.length; i++) {
 
         let day = alignSeed(PATTERN_SEEDS[i], from);
 
-        for (let n = 0; n < PATTERN_LIMIT && !day.isAfter(to, 'day'); n++) {
+        for (let n = 0; n < PATTERN_LIMIT; n++) {
 
-            if (!day.isBefore(from, 'day')) {
+            let ms = day.valueOf();
+
+            if (toMs < ms) {
+                break;
+            }
+
+            if (fromMs <= ms) {
                 marks.add(day.format(CAL_KEY));
             }
 
@@ -474,47 +503,10 @@ const dropPattern = function () {
     PATTERN_STEP = null;
     PATTERN_CYCLE = null;
     PATTERN_SEEDS = [];
-
-    return '';
 };
 
-const calcPattern = function (value, referenceDate) {
-
-    if (0 === value.length) {
-        flashTooltip('pattern-tooltip');
-        return dropPattern();
-    }
-
-    let picked = splitSeeds(value, referenceDate);
-
-    if (null == picked) {
-
-        let one = parseDate(value, referenceDate);
-
-        if (null == one) {
-            flashTooltip('date-tooltip');
-            return dropPattern();
-        }
-
-        picked = [fixDate(one, one.start.moment())];
-    }
-
-    PATTERN_SEEDS = picked;
-    PATTERN_CYCLE = cycleOf(picked);
-
-    let nextDates = findNextDates();
-
-    if (0 === nextDates.length) {
-        flashTooltip('pattern-tooltip');
-        return dropPattern();
-    }
-
-    LAST_ZONE = zoneLabel(nextDates[0]) + ' · every ' + stepLabel();
-
-    return keepDates(nextDates, 'every ' + stepLabel());
-};
-
-const calcRes = function (inputs, referenceDate) {
+//the answer and the grid are cleared from two places, and they clear the same things
+const resetState = function () {
 
     LAST_DURATION = false;
     LAST_DATE = null;
@@ -524,41 +516,69 @@ const calcRes = function (inputs, referenceDate) {
     LAST_RANGE = null;
 
     dropPattern();
+};
+
+//the first field is a list of days either way, one long or several, and both paths want it resolved
+const resolveDates = function (value, referenceDate) {
+
+    //splitSeeds is the validation: it only answers when every comma piece is a date standing alone
+    let picked = splitSeeds(value, referenceDate);
+
+    if (null != picked) {
+        return picked;
+    }
+
+    let one = parseDate(value, referenceDate);
+
+    return null == one ? null : [fixDate(one, one.start.moment())];
+};
+
+const calcPattern = function (seeds) {
+
+    PATTERN_SEEDS = seeds;
+    PATTERN_CYCLE = cycleOf(seeds);
+
+    let nextDates = findNextDates();
+
+    LAST_ZONE = zoneLabel(nextDates[0]) + ' · every ' + stepLabel();
+
+    return keepDates(nextDates, 'every ' + stepLabel());
+};
+
+const calcRes = function (inputs, referenceDate) {
+
+    resetState();
 
     let elements = toElement(inputs),
         value_1 = elements[DATE_INPUT_NUMBER].value.trim(),
         value_2 = elements[ADD_INPUT_NUMBER].value.trim();
 
-    PATTERN_STEP = patternStepOf(value_2);
-
-    if (null != PATTERN_STEP) {
-        return calcPattern(value_1, referenceDate);
-    }
-
     if (0 === value_1.length) {
         return '';
     }
 
-    //a list of picks with no step yet: the answer is the list itself, so the grid marks all of it
-    let picked = splitSeeds(value_1, referenceDate);
+    //one resolution for every path below, so a bad date is caught once and never parsed twice
+    let dates = resolveDates(value_1, referenceDate);
 
-    if (null != picked) {
-
-        LAST_ZONE = zoneLabel(picked[0]);
-
-        return keepDates(picked, value_1);
-    }
-
-    //parse to date, date input val
-    let firstDate = parseDate(value_1, referenceDate);
-
-    if (null == firstDate) {
+    if (null == dates) {
         flashTooltip('date-tooltip');
         return '';
     }
 
-    let fixedDate_1 = fixDate(firstDate, firstDate.start.moment());
+    PATTERN_STEP = patternStepOf(value_2);
 
+    if (null != PATTERN_STEP) {
+        return calcPattern(dates);
+    }
+
+    if (1 < dates.length) {
+        LAST_ZONE = zoneLabel(dates[0]);
+        return keepDates(dates, value_1);
+    }
+
+    let fixedDate_1 = dates[0];
+
+    //the offset belongs to the result date, not to the user, so it cannot be hoisted out of here
     LAST_ZONE = zoneLabel(fixedDate_1);
 
     if (0 === value_2.length) {
@@ -568,28 +588,24 @@ const calcRes = function (inputs, referenceDate) {
     //maybe its date
     let secondDate = parseDate(value_2, referenceDate);
 
-    if (null == secondDate) {
-
-        //take unit from value
-        let operations = getOperations(value_2);
-
-        if (null == operations) {
-            flashTooltip('unit-tooltip');
-            return '';
-        }
-
-        return keepDate(operations.reduce((acc, s) => acc.add(s.num, s.unit), fixedDate_1), value_1 + ' ' + value_2);
+    if (null != secondDate) {
+        let fixedDate_2 = fixDate(secondDate, secondDate.start.moment()),
+            duration = moment.duration(makeDiff(fixedDate_1, fixedDate_2));
+        LAST_DURATION = duration;
+        LAST_RANGE = fixedDate_1.isAfter(fixedDate_2)
+            ? {from: fixedDate_2.clone(), to: fixedDate_1.clone()}
+            : {from: fixedDate_1.clone(), to: fixedDate_2.clone()};
+        return formatDuration(duration, fixedDate_1, fixedDate_2);
     }
 
-    let fixedDate_2 = fixDate(secondDate, secondDate.start.moment()),
-        duration = moment.duration(makeDiff(fixedDate_1, fixedDate_2));
+    let operations = getOperations(value_2);
 
-    LAST_DURATION = duration;
-    LAST_RANGE = fixedDate_1.isAfter(fixedDate_2)
-        ? {from: fixedDate_2.clone(), to: fixedDate_1.clone()}
-        : {from: fixedDate_1.clone(), to: fixedDate_2.clone()};
+    if (null == operations) {
+        flashTooltip('unit-tooltip');
+        return '';
+    }
 
-    return formatDuration(duration, fixedDate_1, fixedDate_2);
+    return keepDate(operations.reduce((acc, s) => acc.add(s.num, s.unit), fixedDate_1), value_1 + ' ' + value_2);
 };
 
 //the date the grid opens on: the result itself, or the start of a span
@@ -606,54 +622,90 @@ const calAnchor = function () {
     return null;
 };
 
+//both ends resolved once per answer, so a cell costs two number compares instead of two moments
+let RANGE_CACHE = {range: null, bounds: null};
+
+const rangeBounds = function () {
+
+    if (RANGE_CACHE.range === LAST_RANGE) {
+        return RANGE_CACHE.bounds;
+    }
+
+    let bounds = null == LAST_RANGE ? null : {
+        from: LAST_RANGE.from.clone().startOf('day').valueOf(),
+        to: LAST_RANGE.to.clone().endOf('day').valueOf()
+    };
+
+    RANGE_CACHE = {range: LAST_RANGE, bounds: bounds};
+
+    return bounds;
+};
+
 const isBetween = function (day) {
 
-    if (null == LAST_RANGE) {
+    let bounds = rangeBounds();
+
+    if (null == bounds) {
         return false;
     }
 
-    return !day.isBefore(LAST_RANGE.from, 'day') && !day.isAfter(LAST_RANGE.to, 'day');
+    let ms = day.valueOf();
+
+    return bounds.from <= ms && ms <= bounds.to;
 };
 
-const isPicked = function (day) {
+//the days the answer names, keyed the way the grid keys its cells; both lists are replaced,
+//never edited, so identity is enough to know the set is still good
+let SELECTED_CACHE = {dates: null, range: null, keys: new Set()};
 
-    if (LAST_DATES.some(one => day.isSame(one, 'day'))) {
-        return true;
+const selectedKeys = function () {
+
+    if (SELECTED_CACHE.dates === LAST_DATES && SELECTED_CACHE.range === LAST_RANGE) {
+        return SELECTED_CACHE.keys;
     }
 
-    if (null == LAST_RANGE) {
-        return false;
+    let keys = new Set();
+
+    for (let i = 0; i < LAST_DATES.length; i++) {
+        keys.add(LAST_DATES[i].format(CAL_KEY));
     }
 
-    return day.isSame(LAST_RANGE.from, 'day') || day.isSame(LAST_RANGE.to, 'day');
+    if (null != LAST_RANGE) {
+        keys.add(LAST_RANGE.from.format(CAL_KEY));
+        keys.add(LAST_RANGE.to.format(CAL_KEY));
+    }
+
+    SELECTED_CACHE = {dates: LAST_DATES, range: LAST_RANGE, keys: keys};
+
+    return keys;
 };
 
-const dayClass = function (day, month, today, marks, picked) {
+//the key is already in hand from the caller, and view holds what is the same for all 42 cells
+const dayClass = function (day, key, view) {
 
-    let classes = ['cal-day'],
-        key = day.format(CAL_KEY);
+    let classes = 'cal-day';
 
-    if (day.month() !== month.month()) {
-        classes.push('cal-out');
+    if (day.month() !== view.month) {
+        classes += ' cal-out';
     }
 
-    if (day.isSame(today, 'day')) {
-        classes.push('cal-today');
+    if (key === view.today) {
+        classes += ' cal-today';
     }
 
     if (isBetween(day)) {
-        classes.push('cal-range');
+        classes += ' cal-range';
     }
 
-    if (marks.has(key)) {
-        classes.push('cal-pattern');
+    if (view.marks.has(key)) {
+        classes += ' cal-pattern';
     }
 
-    if (isPicked(day) || -1 !== picked.indexOf(key)) {
-        classes.push('cal-sel');
+    if (view.selected.has(key) || view.picked.has(key)) {
+        classes += ' cal-sel';
     }
 
-    return classes.join(' ');
+    return classes;
 };
 
 //monday first, without leaning on the moment locale
@@ -687,24 +739,25 @@ const calendarHtml = function (month) {
     let day = firstCell(month),
         today = moment(),
         stop = tabCell(month, today),
-        marks = patternMarks(month),
-        picked = pickedKeys(),
+        view = {
+            month: month.month(),
+            today: today.format(CAL_KEY),
+            marks: patternMarks(month),
+            picked: pickedKeys(),
+            selected: selectedKeys()
+        },
         html = '<div class="cal-head">'
             + '<button type="button" class="cal-nav" data-step="-1" aria-label="Previous month">&#8249;</button>'
             + '<span class="cal-title">' + month.format('MMMM YYYY') + '</span>'
             + '<button type="button" class="cal-nav" data-step="1" aria-label="Next month">&#8250;</button>'
-            + '</div><div class="cal-grid">';
-
-    for (let i = 0; i < CAL_DOW.length; i++) {
-        html += '<span class="cal-dow">' + CAL_DOW[i] + '</span>';
-    }
+            + '</div><div class="cal-grid">' + CAL_DOW_HTML;
 
     for (let i = 0; i < CAL_CELLS; i++) {
 
         let key = day.format(CAL_KEY);
 
         html += '<button type="button" tabindex="' + (key === stop ? '0' : '-1') + '"'
-            + ' class="' + dayClass(day, month, today, marks, picked) + '"'
+            + ' class="' + dayClass(day, key, view) + '"'
             + ' data-day="' + key + '">' + day.date() + '</button>';
 
         day.add(1, 'days');
@@ -788,7 +841,7 @@ const currentKeys = function (value) {
 
 const toggleSeed = function (key) {
 
-    let input = document.getElementsByClassName('input')[0],
+    let input = INPUTS[0],
         keys = currentKeys(input.value.trim()),
         at = keys.indexOf(key);
 
@@ -895,15 +948,14 @@ const onCalendarClick = function (e) {
     }
 
     //ctrl/cmd fills the second field, unless the first one is still empty
-    let inputs = document.getElementsByClassName('input'),
-        second = (e.ctrlKey || e.metaKey) && 0 !== inputs[0].value.trim().length,
-        input = second ? inputs[1] : inputs[0];
+    let second = (e.ctrlKey || e.metaKey) && 0 !== INPUTS[0].value.trim().length,
+        input = second ? INPUTS[1] : INPUTS[0];
 
     input.value = moment(cell.dataset.day, CAL_KEY).format(CAL_INPUT_PATTERN) + clockOf(input.value);
 
     //a plain click is a new setup, so an old end date goes, while a duration stays
-    if (!second && null != parseDate(inputs[1].value)) {
-        inputs[1].value = '';
+    if (!second && null != parseDate(INPUTS[1].value)) {
+        INPUTS[1].value = '';
     }
 
     runCalc();
@@ -933,14 +985,7 @@ const renderResult = function (text) {
 
 const renderEmpty = function () {
 
-    LAST_DURATION = false;
-    LAST_DATE = null;
-    LAST_DATES = [];
-    LAST_TITLE = '';
-    LAST_ZONE = '';
-    LAST_RANGE = null;
-
-    dropPattern();
+    resetState();
 
     let result = document.getElementById('result'),
         zone = document.getElementById('timezone');
@@ -964,17 +1009,15 @@ const fitInput = function (input) {
 
 const runCalc = function () {
 
-    let inputs = Array.from(document.getElementsByClassName('input'));
-
-    fitInput(inputs[0]);
+    fitInput(INPUTS[0]);
 
     //an empty first field is a reset, not a failed parse
-    if (0 === inputs[0].value.trim().length) {
+    if (0 === INPUTS[0].value.trim().length) {
         renderEmpty();
         return '';
     }
 
-    let text = calcRes(inputs);
+    let text = calcRes(INPUTS);
 
     renderResult(text);
 
@@ -983,8 +1026,7 @@ const runCalc = function () {
 
 const focusNext = function (input) {
 
-    let inputs = Array.from(document.getElementsByClassName('input')),
-        next = inputs[inputs.indexOf(input) + 1];
+    let next = INPUTS[Array.prototype.indexOf.call(INPUTS, input) + 1];
 
     if (null == next) {
         return false;
@@ -1003,14 +1045,13 @@ const focusNext = function (input) {
 //tab is a loop over the two fields, the rest of the page is reached with escape first
 const focusSibling = function (input, back) {
 
-    let inputs = Array.from(document.getElementsByClassName('input')),
-        at = inputs.indexOf(input);
+    let at = Array.prototype.indexOf.call(INPUTS, input);
 
     if (-1 === at) {
         return;
     }
 
-    let next = inputs[(at + (back ? -1 : 1) + inputs.length) % inputs.length];
+    let next = INPUTS[(at + (back ? -1 : 1) + INPUTS.length) % INPUTS.length];
 
     next.focus();
 
@@ -1083,7 +1124,7 @@ const onPageKeyDown = function (e) {
         return;
     }
 
-    let first = document.getElementsByClassName('input')[0];
+    let first = INPUTS[0];
 
     if (null == first) {
         return;
@@ -1150,11 +1191,16 @@ const capitalize = function (word) {
 
 //chrono reads english best, so swap the russian words it knows about before parsing
 const translate = function (string) {
-    return string
-        .replace(RU_WORDS_REGEX, (all, before, word) => before + RU_WORDS[word.toLowerCase()])
-        .replace(RU_IN_REGEX, (all, num, unit) => 'in ' + num + ' ' + formatUnits(unit))
-        .replace(RU_AGO_REGEX, (all, num, unit) => num + ' ' + formatUnits(unit) + ' ago')
-        .replace(CASE_REGEX, capitalize);
+
+    //all three russian passes need cyrillic to match, so an english string never runs them
+    if (HAS_RU_REGEX.test(string)) {
+        string = string
+            .replace(RU_WORDS_REGEX, (all, before, word) => before + RU_WORDS[word.toLowerCase()])
+            .replace(RU_IN_REGEX, (all, num, unit) => 'in ' + num + ' ' + formatUnits(unit))
+            .replace(RU_AGO_REGEX, (all, num, unit) => num + ' ' + formatUnits(unit) + ' ago');
+    }
+
+    return string.replace(CASE_REGEX, capitalize);
 };
 
 //chrono.min.js loads after this file, so the list can only be built on the first parse
@@ -1199,7 +1245,27 @@ const parseAtMidnight = function (parser, string, referenceDate) {
     return parseWith(parser, string + ' 00:00:00', referenceDate) || found;
 };
 
+//every day the grid writes comes back as DD.MM.YYYY, and chrono costs two parses plus a
+//translate pass to reach the same answer moment can read directly
+const plainDate = function (string) {
+
+    if (!PLAIN_DATE_REGEX.test(string)) {
+        return null;
+    }
+
+    let day = moment(string, CAL_INPUT_PATTERN, true);
+
+    //a full numeric date leaves nothing implied, so every field of it is certain
+    return day.isValid() ? {text: string, start: {moment: () => day.clone(), isCertain: () => true}} : null;
+};
+
 const parseDate = function (string, /*for tests*/ referenceDate) {
+
+    let plain = plainDate(string.trim());
+
+    if (null != plain) {
+        return plain;
+    }
 
     string = translate(string);
 
@@ -1299,11 +1365,10 @@ const baseUrl = function () {
 
 const buildShareUrl = function () {
 
-    let inputs = document.getElementsByClassName('input'),
-        params = new URLSearchParams();
+    let params = new URLSearchParams();
 
-    params.set(SHARE_DATE, inputs[0].value.trim());
-    params.set(SHARE_UNIT, inputs[1].value.trim());
+    params.set(SHARE_DATE, INPUTS[0].value.trim());
+    params.set(SHARE_UNIT, INPUTS[1].value.trim());
 
     if (LOCAL_ZONE) {
         params.set(SHARE_ZONE, LOCAL_ZONE);
@@ -1338,9 +1403,7 @@ const showCopied = function (text) {
 
 const onShare = function () {
 
-    let inputs = document.getElementsByClassName('input');
-
-    if (inputs[0].value.trim().length === 0) {
+    if (INPUTS[0].value.trim().length === 0) {
         flashTooltip('date-tooltip');
         return;
     }
@@ -1379,10 +1442,8 @@ const applySharedState = function () {
         return false;
     }
 
-    let inputs = document.getElementsByClassName('input');
-
-    inputs[0].value = date;
-    inputs[1].value = params.get(SHARE_UNIT) || '';
+    INPUTS[0].value = date;
+    INPUTS[1].value = params.get(SHARE_UNIT) || '';
 
     SHARED_ZONE = params.get(SHARE_ZONE);
 
@@ -1391,14 +1452,15 @@ const applySharedState = function () {
 
 window.onload = function () {
 
-    let inputs = Array.from(document.getElementsByClassName('input'));
+    for (let i = 0; i < INPUTS.length; i++) {
 
-    inputs.forEach((input, i) => {
+        let input = INPUTS[i];
+
         //cleans at refresh
         input.value = null;
-        input.setAttribute('enterkeyhint', i === inputs.length - 1 ? 'done' : 'next');
-        input.addEventListener('keydown', onKeyDown)
-    })
+        input.setAttribute('enterkeyhint', i === INPUTS.length - 1 ? 'done' : 'next');
+        input.addEventListener('keydown', onKeyDown);
+    }
 
     document.addEventListener('keydown', onPageKeyDown);
 
@@ -1406,11 +1468,12 @@ window.onload = function () {
     document.getElementById('calendar-btn').addEventListener('click', onCalendar);
     let view = document.getElementById('calendar-view');
 
+    //none of the pointer handlers cancel the gesture, so the browser never waits on them
     view.addEventListener('click', onCalendarClick);
-    view.addEventListener('pointerdown', onCalendarPointerDown);
-    view.addEventListener('pointermove', onCalendarPointerMove);
-    view.addEventListener('pointerup', cancelPress);
-    view.addEventListener('pointercancel', cancelPress);
+    view.addEventListener('pointerdown', onCalendarPointerDown, {passive: true});
+    view.addEventListener('pointermove', onCalendarPointerMove, {passive: true});
+    view.addEventListener('pointerup', cancelPress, {passive: true});
+    view.addEventListener('pointercancel', cancelPress, {passive: true});
     view.addEventListener('contextmenu', (e) => {
 
         //the hold is the gesture, the os menu would eat it
@@ -1429,11 +1492,11 @@ window.onload = function () {
     });
 
     //reset if pass empty
-    inputs[0].addEventListener('input', () => {
+    INPUTS[0].addEventListener('input', () => {
 
-        fitInput(inputs[0]);
+        fitInput(INPUTS[0]);
 
-        if (0 === inputs[0].value.trim().length) {
+        if (0 === INPUTS[0].value.trim().length) {
             renderEmpty();
         }
     });
