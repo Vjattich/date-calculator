@@ -1,14 +1,87 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta name="viewport" content="width=device-width,initial-scale=1.0">
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+
+    <title>Date Calculator — math with the dates</title>
+    <meta name="description" content="Free date calculator. Type a date in any format — 25.12.2026, 2026-12-25, 12/25/2026, next Friday, следующую пятницу — add or subtract days, weeks, months and hours, or count the days between two dates. No sign-up, no ads.">
+
+    <link rel="canonical" href="https://vjattich.github.io/date-calculator/">
+    <meta name="robots" content="index,follow,max-image-preview:large">
+    <meta name="theme-color" content="#ffa500">
+    <meta name="author" content="Vjattich">
+
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Date Calculator">
+    <meta property="og:url" content="https://vjattich.github.io/date-calculator/">
+    <meta property="og:title" content="Date Calculator — math with the dates">
+    <meta property="og:description" content="Type a date in any format or in plain words, add or subtract days, weeks and months, or count the days between two dates. Share the result with one link.">
+    <meta property="og:image" content="https://vjattich.github.io/date-calculator/calendar.png">
+    <meta property="og:locale" content="en_US">
+    <meta property="og:locale:alternate" content="ru_RU">
+    <meta property="og:locale:alternate" content="uk_UA">
+    <meta property="og:locale:alternate" content="de_DE">
+    <meta property="og:locale:alternate" content="fr_FR">
+    <meta property="og:locale:alternate" content="nl_NL">
+    <meta property="og:locale:alternate" content="es_ES">
+    <meta property="og:locale:alternate" content="pt_PT">
+    <meta property="og:locale:alternate" content="it_IT">
+    <meta property="og:locale:alternate" content="ja_JP">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="Date Calculator">
+    <meta name="twitter:description" content="Add days to a date or count the days between two dates, in plain words.">
+    <meta name="twitter:image" content="https://vjattich.github.io/date-calculator/calendar.png">
+
     <link rel="icon" href="calendar.png">
-    <title>Date calculator</title>
+    <link rel="apple-touch-icon" href="calendar.png">
+
+    <script type="application/ld+json">
+        {
+            "@context": "https://schema.org",
+            "@type": "WebApplication",
+            "name": "Date Calculator",
+            "url": "https://vjattich.github.io/date-calculator/",
+            "applicationCategory": "UtilitiesApplication",
+            "operatingSystem": "Any browser",
+            "browserRequirements": "Requires JavaScript",
+            "inLanguage": ["en", "ru", "uk", "fr", "nl", "de", "es", "pt", "it", "fi", "sv", "ja", "vi", "zh-Hant"],
+            "description": "Date calculator that reads any date format and dates written in plain words, adds or subtracts days, weeks, months and hours, and counts the time between two dates. The answer is always shown as numbers with the weekday and month spelled out in English.",
+            "featureList": [
+                "Numeric dates in any order: 25.12.2026, 2026-12-25, 12/25/2026, 25-12-2026",
+                "Time with dates: 25.12.2026 00.00, 2026-12-25 00:00:00, 12/25/2026 00:00, 25-12-2026",
+                "Plain words: today, next Friday, \u0441\u043b\u0435\u0434\u0443\u044e\u0449\u0443\u044e \u043f\u044f\u0442\u043d\u0438\u0446\u0443, \u0447\u0435\u0440\u0435\u0437 3 \u0434\u043d\u044f",
+                "Add or subtract years, months, weeks, days, hours, minutes and seconds",
+                "Count the time between two dates",
+                "Build a repeating pattern from picked days and get the next date it falls on",
+                "Share any answer as a link"
+            ],
+            "isAccessibleForFree": true,
+            "author": {"@type": "Person", "name": "Vjattich", "url": "https://github.com/Vjattich"}
+        }
+    </script>
+
     <style>
+
+        :root {
+            --bg: orange;
+            --ink: #1c1200;
+            --cell: #ffb64d;
+            --cell-hover: #ffca7a;
+            --range: #d98200;
+            --faint: #b8791a;
+            --muted: #8a5a00;
+            --radius: 8px;
+            --line: 2px;
+        }
+
+        html {
+            font-size: 16px;
+        }
 
         html, body {
             font-family: sans-serif;
+            color: var(--ink);
         }
 
         input, button, textarea, select {
@@ -26,43 +99,14 @@
             margin: 0 auto;
         }
 
-        .guide-nav {
-            background: none;
-            border: none;
-            cursor: pointer;
-            padding: 0 10px;
-            display: none;
-            transition: transform 0.1s ease;
-            user-select: none;
-            align-items: center;
-            justify-content: center;
-            height: 40px;
-            flex-shrink: 0;
-        }
-
-        .guide-nav svg {
-            display: block;
-        }
-
-        .guide-nav:active {
-            transform: scale(0.85);
-        }
-
-
         .share-holder {
-            position: absolute;
-            left: 100%;
-            top: 100%;
-            margin-top: 0.4em;
-            margin-left: 0.5em;
+            position: relative;
             display: flex;
             align-items: center;
-            gap: 0.5em;
             white-space: nowrap;
-            z-index: 1;
         }
 
-        .share-btn-style {
+        .share-btn-style, .calendar-btn-style {
             background: none;
             border: 0;
             padding: 0;
@@ -70,50 +114,140 @@
             cursor: pointer;
         }
 
-        .share {
+        .share, .calendar {
             transition: transform 0.1s ease-in;
         }
 
-        .share-btn-style:active .share {
+        .share-btn-style:active .share, .calendar-btn-style:active .calendar {
             transform: scale(0.9);
         }
 
         .copy-text {
-            font-family: sans-serif;
-            font-size: 0.9em;
+            position: absolute;
+            left: 100%;
+            margin-left: 0.5em;
+            font-size: 0.7rem;
+        }
+
+        .actions {
+            position: absolute;
+            top: 50%;
+            left: 100%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.8em;
+            margin-left: 0.7em;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
         }
 
         .calendar-holder {
             transition: opacity 0.3s ease, visibility 0.3s ease;
             display: flex;
             align-items: center;
-            justify-content: right;
-            margin-top: 0.8em;
-        }
-
-        .calendar-btn-style {
-            background: none;
-            border: 0;
-            padding: 0;
-            line-height: 0;
-            cursor: pointer;
-        }
-
-        .calendar {
-            transition: transform 0.1s ease-in;
-        }
-
-        .calendar-btn-style:active .calendar {
-            transform: scale(0.9);
         }
 
         #timezone {
             display: block;
             margin-top: 0.4em;
             font-size: 0.7em;
-            opacity: 0.7;
+            color: var(--muted);
         }
 
+        .calendar-block {
+            position: relative;
+            width: fit-content;
+            margin: 3em auto 0;
+        }
+
+        .calendar-view {
+            width: fit-content;
+            margin: 0 auto;
+            font-size: 0.8rem;
+            user-select: none;
+        }
+
+        .cal-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5em;
+            margin-bottom: 0.5em;
+        }
+
+        .cal-title {
+            font-weight: bold;
+        }
+
+        .cal-nav {
+            background: none;
+            border: 0;
+            padding: 0 0.5em;
+            color: inherit;
+            font-size: 1.3em;
+            line-height: 1;
+            cursor: pointer;
+            transition: transform 0.1s ease-in;
+        }
+
+        .cal-nav:active {
+            transform: scale(0.8);
+        }
+
+        .cal-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 2.2em);
+            gap: 0.2em;
+        }
+
+        .cal-dow {
+            font-size: 0.75em;
+            line-height: 2;
+            text-align: center;
+            color: var(--muted);
+        }
+
+        .cal-day {
+            padding: 0;
+            border: 0;
+            background: var(--cell);
+            color: inherit;
+            font: inherit;
+            line-height: 2.2em;
+            text-align: center;
+            cursor: pointer;
+            touch-action: manipulation;
+            -webkit-touch-callout: none;
+            transition: background 0.1s ease-in, transform 0.1s ease-in;
+        }
+
+        .cal-day:hover {
+            background: var(--cell-hover);
+        }
+
+        .cal-day:active {
+            transform: scale(0.88);
+        }
+
+        .cal-out {
+            background: none;
+            color: var(--faint);
+        }
+
+        /* a span end, and a repeat the step produced, read the same */
+        .cal-range, .cal-pattern {
+            background: var(--range);
+        }
+
+        .cal-today {
+            box-shadow: inset 0 0 0 1px var(--ink);
+        }
+
+        .cal-sel, .cal-sel:hover {
+            background: var(--ink);
+            color: var(--bg);
+        }
 
         #tutorial-layer {
             position: fixed;
@@ -137,13 +271,13 @@
 
         .tutorial-arrow {
             fill: none;
-            stroke: #000000;
+            stroke: var(--ink);
             stroke-width: 2.4;
             stroke-linecap: round;
         }
 
         .tutorial-arrow-head {
-            fill: #000000;
+            fill: var(--ink);
             stroke: none;
             opacity: 0;
         }
@@ -153,11 +287,10 @@
             position: absolute;
             max-width: 13em;
             padding: 0.45em 0.7em;
-            border-radius: 10px;
+            border-radius: var(--radius);
             border: 1px solid #aeaeae;
-            background-color: black;
-            color: orange;
-            font-family: sans-serif;
+            background-color: var(--ink);
+            color: var(--bg);
             font-size: 0.85em;
             line-height: 1.3;
             text-align: center;
@@ -183,8 +316,7 @@
             border-radius: 5px;
             background: #f2f2f2;
             box-shadow: 0 2px 0 #8f8f8f;
-            color: #000000;
-            font-family: sans-serif;
+            color: var(--ink);
             font-size: 0.75em;
             line-height: 1.6;
             transition: transform 90ms ease, box-shadow 90ms ease;
@@ -197,22 +329,6 @@
 
         .share.tutorial-press, .calendar.tutorial-press {
             transform: scale(0.85);
-        }
-
-        #icon-x {
-            display: none;
-        }
-
-        body.tutorial-on #icon-question {
-            display: none;
-        }
-
-        body.tutorial-on #icon-x {
-            display: block;
-        }
-
-        body.tutorial-on .guide-nav {
-            display: flex;
         }
 
         body.tutorial-on #main {
@@ -238,7 +354,6 @@
         }
 
         #tutorial-counter {
-            font-family: sans-serif;
             font-size: 0.8em;
         }
 
@@ -252,41 +367,39 @@
                 animation: none;
             }
 
-            .result, .calendar-holder {
+            .result, .actions, .calendar-holder, .calendar-view, .cal-day, .cal-nav {
                 transition: none;
             }
         }
 
-        .box40 {
-            width: 40px;
-            height: 40px;
-        }
-
-        html {
-            font-size: 16px;
-        }
-
-        footer {
-            position: fixed;
-            bottom: 1em;
-            left: 50%;
-            transform: translateX(-50%);
-            width: auto;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 0.5em;
-            padding: 0 1em;
-            z-index: 10;
+        /* readable by search engines and screen readers, out of the way of the design */
+        .visually-hidden {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            margin: -1px;
+            padding: 0;
+            overflow: hidden;
+            clip: rect(0 0 0 0);
+            clip-path: inset(50%);
+            white-space: nowrap;
+            border: 0;
         }
 
         .input {
             min-width: 6em;
             min-height: 1em;
             width: 8em;
-            border: 0.2em solid;
+            border: var(--line) solid var(--ink);
+            padding: 0.15em 0.4em;
             transition: all 0.1s ease-in;
             font-size: 1em;
+        }
+
+        /* a comma list of picked days needs more room than a single date */
+        .input.input-wide {
+            width: 20em;
+            max-width: calc(100vw - 8rem);
         }
 
         .font-size-20 {
@@ -294,7 +407,7 @@
         }
 
         .margin-top-15p {
-            margin-top: 15%
+            margin-top: 10%
         }
 
         .center {
@@ -304,13 +417,7 @@
         }
 
         .background-orange {
-            background: orange;
-        }
-
-        .qr {
-            width: 40px;
-            height: 40px;
-            margin: 5px 5px 5px 5px;
+            background: var(--bg);
         }
 
         hr {
@@ -324,17 +431,13 @@
         }
 
         .guide {
-            font-family: sans-serif;
-            -webkit-transition: opacity 1s;
-            -moz-transition: opacity 1s;
-            -o-transition: opacity 1s;
             transition: opacity 1s;
         }
 
         .result {
             width: fit-content;
             max-width: 100%;
-            margin: 3em auto 0;
+            margin: 1.2em auto 6em;
             transition: opacity 0.3s ease;
         }
 
@@ -351,83 +454,56 @@
         }
 
         .opacity-1 {
-            opacity: 100;
+            opacity: 1;
+        }
+
+        .tooltip-right-up, .tooltip-right-down, .tooltip-left-up, .tooltip-result {
+            position: absolute;
+            padding: 5px;
+            width: auto;
+            border: 1px solid #aeaeae;
+            background-color: var(--ink);
+            color: var(--bg);
+            z-index: 1;
+            transition: opacity 0.5s;
         }
 
         .tooltip-right-up {
-            position: absolute;
-            padding: 5px;
             margin-top: -1.8em;
             margin-left: 8.7em;
-            width: auto;
-            border-radius: 10px 10px 10px 0px;
-            border: 1px solid #aeaeae;
-            background-color: black;
-            color: orange;
-            z-index: 1;
-            -webkit-transition: opacity 0.5s;
-            -moz-transition: opacity 0.5s;
-            -o-transition: opacity 0.5s;
-            transition: opacity 0.5s;
+            border-radius: var(--radius) var(--radius) var(--radius) 0;
         }
 
         .tooltip-right-down {
-            position: absolute;
-            padding: 5px;
             margin-top: 1.8em;
             margin-left: 8.7em;
-            width: auto;
-            border-radius: 0px 10px 10px 10px;
-            border: 1px solid #aeaeae;
-            background-color: black;
-            color: orange;
-            z-index: 1;
-            -webkit-transition: opacity 0.5s;
-            -moz-transition: opacity 0.5s;
-            -o-transition: opacity 0.5s;
-            transition: opacity 0.5s;
-        }
-
-        .tooltip-result {
-            position: absolute;
-            padding: 5px;
-            margin-top: 5em;
-            margin-left: -12em;
-            width: auto;
-            border-radius: 10px 0px 10px 10px;
-            border: 1px solid #aeaeae;
-            background-color: black;
-            color: orange;
-            z-index: 1;
-            -webkit-transition: opacity 0.5s;
-            -moz-transition: opacity 0.5s;
-            -o-transition: opacity 0.5s;
-            transition: opacity 0.5s;
+            border-radius: 0 var(--radius) var(--radius) var(--radius);
         }
 
         .tooltip-left-up {
-            position: absolute;
-            padding: 5px;
             margin-top: -3rem;
             margin-left: -30rem;
-            width: auto;
-            border-radius: 10px 10px 0px 10px;
-            border: 1px solid #aeaeae;
-            background-color: black;
-            color: orange;
-            z-index: 1;
-            -webkit-transition: opacity 0.5s;
-            -moz-transition: opacity 0.5s;
-            -o-transition: opacity 0.5s;
-            transition: opacity 0.5s;
+            border-radius: var(--radius) var(--radius) 0 var(--radius);
+        }
+
+        .tooltip-result {
+            margin-top: 5em;
+            margin-left: -12em;
+            border-radius: var(--radius) 0 var(--radius) var(--radius);
         }
 
         .hidden {
             visibility: hidden
         }
 
-        .calendar-holder.hidden {
+        .actions.hidden, .calendar-holder.hidden {
             opacity: 0;
+        }
+
+        /* the guide points at these, so it needs them on screen even with no result */
+        body.tutorial-on .actions.hidden, body.tutorial-on .calendar-holder.hidden {
+            visibility: visible;
+            opacity: 1;
         }
 
         @media screen and (max-width: 768px) {
@@ -467,17 +543,32 @@
                 display: none;
             }
 
-            .share-holder {
-                top: 4em;
+            .copy-text {
+                top: 100%;
                 left: auto;
                 right: 0;
-                margin-top: 0;
+                margin-top: 0.4em;
                 margin-left: 0;
-                margin-right: calc(-30px - 0.4rem);
             }
 
-            .copy-text {
-                order: -1;
+            .actions {
+                margin-left: 0.4em;
+            }
+
+            .calendar-block {
+                margin: 2em auto 0;
+            }
+
+            .result {
+                margin: 1em auto 5em;
+            }
+
+            .calendar-view {
+                font-size: 0.9rem;
+            }
+
+            .cal-grid {
+                grid-template-columns: repeat(7, 2.6em);
             }
 
             .tooltip-right-up, .tooltip-right-down, .tooltip-left-up, .tooltip-result {
@@ -487,7 +578,7 @@
                 position: fixed;
                 left: 50%;
                 transform: translateX(-50%);
-                border-radius: 10px 10px 10px 10px;
+                border-radius: var(--radius);
             }
 
             .tooltip-left-up {
@@ -504,13 +595,6 @@
 
             .tooltip-result {
                 margin-top: 12rem;
-
-            }
-
-            /* Adjust QR code size for mobile */
-            .qr {
-                width: 40px;
-                height: 40px;
             }
 
             div:has(br) {
@@ -518,23 +602,7 @@
             }
         }
 
-        @media screen and (max-width: 200px) {
-
-            footer {
-                display: none
-            }
-
-            #main {
-                display: none
-            }
-
-        }
-
-        @media screen and (max-height: 200px) {
-
-            footer {
-                display: none
-            }
+        @media screen and (max-width: 200px), screen and (max-height: 200px) {
 
             #main {
                 display: none
@@ -548,67 +616,52 @@
     <svg id="tutorial-arrows" xmlns="http://www.w3.org/2000/svg">
         <defs>
             <marker id="tutorial-head" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-                <path d="M 0 0 L 10 5 L 0 10 z" fill="#000000"/>
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--ink)"/>
             </marker>
         </defs>
     </svg>
 </div>
 <div class="center margin-top-15p font-size-20">
-
-    <div><br></div>
-    <div><br></div>
-    <div><br></div>
-    <div id="main" style="flex: 1 1 auto">
+    <main id="main" style="flex: 1 1 auto">
+        <h1 class="visually-hidden">Date calculator: add days to a date or count the days between two dates</h1>
+        <noscript>
+            <p>This date calculator needs JavaScript to parse the dates you type. Please enable it and reload the page.</p>
+        </noscript>
         <div id="tooltips">
             <span id="unit-tooltip" class="tooltip-right-up opacity-0">You need to set and unit</span>
+            <span id="pattern-tooltip" class="tooltip-right-down opacity-0">Pick days first: shift-click, or hold on mobile</span>
         </div>
         <div class="input-row">
-            <input class="input 1"><span style="margin: 0 0.15em;"></span><input class="input 2">
-            <div class="share-holder">
-                <button id="share-btn" class="share-btn-style" aria-label="Copy share link"><svg class="box30 share" height="30px" width="30px" version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 458.624 458.624" xml:space="preserve"><g stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <g> <g> <path d="M339.588,314.529c-14.215,0-27.456,4.133-38.621,11.239l-112.682-78.67c1.809-6.315,2.798-12.976,2.798-19.871 c0-6.896-0.989-13.557-2.798-19.871l109.64-76.547c11.764,8.356,26.133,13.286,41.662,13.286c39.79,0,72.047-32.257,72.047-72.047 C411.634,32.258,379.378,0,339.588,0c-39.79,0-72.047,32.257-72.047,72.047c0,5.255,0.578,10.373,1.646,15.308l-112.424,78.491 c-10.974-6.759-23.892-10.666-37.727-10.666c-39.79,0-72.047,32.257-72.047,72.047s32.256,72.047,72.047,72.047 c13.834,0,26.753-3.907,37.727-10.666l113.292,79.097c-1.629,6.017-2.514,12.34-2.514,18.872c0,39.79,32.257,72.047,72.047,72.047 c39.79,0,72.047-32.257,72.047-72.047C411.635,346.787,379.378,314.529,339.588,314.529z"></path> </g> </g> </g></svg></button>
-                <span id="copy-text" class="copy-text hidden">Copied!</span>
-            </div>
+            <input class="input 1" type="text" autocomplete="off" autocorrect="off" spellcheck="false"
+                   aria-label="Date in any format, for example 25.12.2026, 2026-12-25 or next Friday. Several dates can be listed with commas"><span
+                style="margin: 0 0.15em;"></span><input class="input 2" type="text" autocomplete="off"
+                                                        autocorrect="off" spellcheck="false"
+                                                        aria-label="Second date, an amount such as 3 days, or a repeat such as * 2 days">
             <span id="date-tooltip" class="tooltip-left-up opacity-0">Can't read this date</span>
+        </div>
+        <div class="calendar-block">
+            <div id="calendar-view" class="calendar-view"></div>
+            <div class="actions hidden">
+                <div id="share-holder" class="share-holder">
+                    <button id="share-btn" class="share-btn-style" aria-label="Copy share link"><svg class="box30 share" viewBox="0 0 458.624 458.624" xmlns="http://www.w3.org/2000/svg"><path d="M339.588,314.529c-14.215,0-27.456,4.133-38.621,11.239l-112.682-78.67c1.809-6.315,2.798-12.976,2.798-19.871 c0-6.896-0.989-13.557-2.798-19.871l109.64-76.547c11.764,8.356,26.133,13.286,41.662,13.286c39.79,0,72.047-32.257,72.047-72.047 C411.634,32.258,379.378,0,339.588,0c-39.79,0-72.047,32.257-72.047,72.047c0,5.255,0.578,10.373,1.646,15.308l-112.424,78.491 c-10.974-6.759-23.892-10.666-37.727-10.666c-39.79,0-72.047,32.257-72.047,72.047s32.256,72.047,72.047,72.047 c13.834,0,26.753-3.907,37.727-10.666l113.292,79.097c-1.629,6.017-2.514,12.34-2.514,18.872c0,39.79,32.257,72.047,72.047,72.047 c39.79,0,72.047-32.257,72.047-72.047C411.635,346.787,379.378,314.529,339.588,314.529z"/></svg></button>
+                    <span id="copy-text" class="copy-text hidden">Copied!</span>
+                </div>
+                <div id="calendar-holder" class="calendar-holder hidden">
+                    <button id="calendar-btn" class="calendar-btn-style" aria-label="Add result to Google Calendar"><svg class="box30 calendar" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="var(--ink)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="16.5" rx="2"/><path d="M3 9.5h18"/><path d="M8 2.5v4"/><path d="M16 2.5v4"/><text x="12" y="18.6" fill="var(--ink)" stroke="none" font-size="10" font-weight="700" text-anchor="middle">G</text></svg></button>
+                </div>
+            </div>
         </div>
         <div class="result">
             <span class="result-span" id="result"></span>
             <span id="timezone"></span>
-            <div id="calendar-holder" class="calendar-holder hidden">
-                <button id="calendar-btn" class="calendar-btn-style" aria-label="Add result to Google Calendar"><svg class="box30 calendar" width="30px" height="30px" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="#000000" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="16.5" rx="2"/><path d="M3 9.5h18"/><path d="M8 2.5v4"/><path d="M16 2.5v4"/><path d="M12 12.5v5"/><path d="M9.5 15h5"/></svg></button>
-            </div>
         </div>
-    </div>
+    </main>
 </div>
+<!-- plain tags, so the preload scanner starts all four while the html is still parsing;
+     defer keeps them in this order and off the parser's back -->
+<script src="footer.js" data-repo="https://github.com/Vjattich/date-calculator" data-guide defer></script>
+<script src="index.js" defer></script>
+<script src="tutorial.js" defer></script>
+<script src="chrono.min.js" defer></script>
 </body>
-<footer>
-    <button class="guide-nav" id="guidePrev">
-        <svg fill="#000000" height="40" viewBox="0 0 24 24" width="40" xmlns="http://www.w3.org/2000/svg">
-            <path d="M22,11 H5.41 l5.3,-5.29 A1,1 0 1,0 9.29,4.29 l-7,7 a1,1 0 0,0 0,1.42 l7,7 a1,1 0 0,0 1.42,-1.42 L5.41,13 H22 a1,1 0 0,0 0,-2 Z"/>
-        </svg>
-    </button>
-    <a class="box40" href="https://github.com/Vjattich/date-calculator" target="_blank"><svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 25 25"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-4.466 19.59c-.405.078-.534-.171-.534-.384v-2.195c0-.747-.262-1.233-.55-1.481 1.782-.198 3.654-.875 3.654-3.947 0-.874-.312-1.588-.823-2.147.082-.202.356-1.016-.079-2.117 0 0-.671-.215-2.198.82-.64-.18-1.324-.267-2.004-.271-.68.003-1.364.091-2.003.269-1.528-1.035-2.2-.82-2.2-.82-.434 1.102-.16 1.915-.077 2.118-.512.56-.824 1.273-.824 2.147 0 3.064 1.867 3.751 3.645 3.954-.229.2-.436.552-.508 1.07-.457.204-1.614.557-2.328-.666 0 0-.423-.768-1.227-.825 0 0-.78-.01-.055.487 0 0 .525.246.889 1.17 0 0 .463 1.428 2.688.944v1.489c0 .211-.129.459-.528.385-3.18-1.057-5.472-4.056-5.472-7.59 0-4.419 3.582-8 8-8s8 3.581 8 8c0 3.533-2.289 6.531-5.466 7.59z"/></svg></a>
-    <a href="https://t.me/arsinioum" target="_blank">
-        <img alt="Telegram channel QR" class="qr" src="qr-telegram-channel.svg">
-    </a>
-    <a href="https://t.me/+oju8lTGAetsxOWJi" target="_blank">
-        <img alt="Telegram group QR" class="qr" src="qr-telegram-group.svg">
-    </a>
-    <span class="question-mark"><svg id="icon-question" fill="#000000" height="40" width="40" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 29.536 29.536" xml:space="preserve"><g><path d="M14.768,0C6.611,0,0,6.609,0,14.768c0,8.155,6.611,14.767,14.768,14.767s14.768-6.612,14.768-14.767 C29.535,6.609,22.924,0,14.768,0z M14.768,27.126c-6.828,0-12.361-5.532-12.361-12.359c0-6.828,5.533-12.362,12.361-12.362 c6.826,0,12.359,5.535,12.359,12.362C27.127,21.594,21.594,27.126,14.768,27.126z"/><path d="M14.385,19.337c-1.338,0-2.289,0.951-2.289,2.34c0,1.336,0.926,2.339,2.289,2.339c1.414,0,2.314-1.003,2.314-2.339 C16.672,20.288,15.771,19.337,14.385,19.337z"/><path d="M14.742,6.092c-1.824,0-3.34,0.513-4.293,1.053l0.875,2.804c0.668-0.462,1.697-0.772,2.545-0.772 c1.285,0.027,1.879,0.644,1.879,1.543c0,0.85-0.67,1.697-1.494,2.701c-1.156,1.364-1.594,2.701-1.516,4.012l0.025,0.669h3.42 v-0.463c-0.025-1.158,0.387-2.162,1.311-3.215c0.979-1.08,2.211-2.366,2.211-4.321C19.705,7.968,18.139,6.092,14.742,6.092z"/></g></svg><svg fill="#000000" height="40" id="icon-x" viewBox="2 2 20 20" width="40" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.47 2 2 6.47 2 12s4.47 10 10 10 10-4.47 10-10S17.53 2 12 2zm5 13.59L15.59 17 12 13.41 8.41 17 7 15.59 10.59 12 7 8.41 8.41 7 12 10.59 15.59 7 17 8.41 13.41 12 17 15.59z"/></svg></span>
-    <button class="guide-nav" id="guideNext">
-        <svg fill="#000000" height="40" viewBox="0 0 24 24" width="40" xmlns="http://www.w3.org/2000/svg">
-            <path d="M2,11 H18.59 l-5.3,-5.29 A1,1 0 1,1 14.71,4.29 l7,7 a1,1 0 0,1 0,1.42 l-7,7 a1,1 0 0,1 -1.42,-1.42 L18.59,13 H2 a1,1 0 0,1 0,-2 Z"/>
-        </svg>
-    </button>
-</footer>
-<script>
-    (function () {
-        const t = Date.now();
-        ['index.js', 'tutorial.js', 'chrono.min.js'].forEach(function (src) {
-            var s = document.createElement('script');
-            s.src = src + '?t=' + t;
-            s.async = false;
-            document.body.appendChild(s);
-        });
-    })();
-</script>
 </html>
