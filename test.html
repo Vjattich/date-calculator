@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <meta charset='utf-8'>
 <title>Test Suite</title>
-<link rel='stylesheet' href='https://code.jquery.com/qunit/qunit-2.25.0.css'>
+<link rel='stylesheet' href='https://code.jquery.com/qunit/qunit-2.26.0.css'>
 <body>
 
 <div id='qunit'></div>
 <div id='qunit-fixture'></div>
-<script src='https://code.jquery.com/qunit/qunit-2.25.0.js'></script>
+<script src='https://code.jquery.com/qunit/qunit-2.26.0.js'></script>
 <script src='index.js'></script>
 <script src='chrono.min.js'></script>
 </body>
@@ -180,6 +180,21 @@
                 , case117 = makeInputs('22.11.1996, 23.11.1996', '* 2 d')
                 , case118 = makeInputs('22.11.1996, 23.11.1996', 'every week')
                 , case119 = makeInputs('22.11.1996, 23.11.1996', 'every 3 days')
+                , case120 = makeInputs('22.11.1996, 23.11.1996, 24.11.1996', '* 2 days')
+
+                , case121 = makeInputs('22.11.1996, 25.11.1996', '* 1 day')
+                , case122 = makeInputs('22.11.1996', '* 2 days')
+                , case123 = makeInputs('22.11.1996, 23.11.1996', 'каждые 3 дня')
+                , case124 = makeInputs('22.11.1996, 23.11.1996', 'x2 weeks')
+                , case125 = makeInputs('22.11.1996, 23.11.1996', '* -2 days')
+                , case126 = makeInputs('22.11.1996, 23.11.1996', 'every day')
+                , case127 = makeInputs('22.11.1996, 23.11.1996', 'every month')
+                , case128 = makeInputs('22.11.1996, 23.11.1996', '* 1 week 2 days')
+                , case129 = makeInputs('22.11.1996, 23.11.1996', '')
+                , case130 = makeInputs('', '* 2 days')
+                , case131 = makeInputs('December 25, 2026', '')
+                , case132 = makeInputs('22.11.1996', '* nonsense')
+
 
             ;
 
@@ -304,6 +319,20 @@
                 , result117 = calcRes(case117)
                 , result118 = calcRes(case118)
                 , result119 = calcRes(case119)
+                , result120 = calcRes(case120)
+                , result121 = calcRes(case121)
+                , result122 = calcRes(case122)
+                , result123 = calcRes(case123)
+                , result124 = calcRes(case124)
+                , result125 = calcRes(case125)
+                , result126 = calcRes(case126)
+                , result127 = calcRes(case127)
+                , result128 = calcRes(case128)
+                , result129 = calcRes(case129)
+                , result130 = calcRes(case130)
+                , result131 = calcRes(case131, REFERENCE)
+                , result132 = calcRes(case132)
+
             ;
 
             //THEN
@@ -446,6 +475,19 @@
             assert.equal(result117, '26.11.1996, 27.11.1996');
             assert.equal(result118, '06.12.1996, 07.12.1996');
             assert.equal(result119, '27.11.1996, 28.11.1996');
+            assert.equal(result120, '27.11.1996, 28.11.1996, 29.11.1996');
+            assert.equal(result121, '27.11.1996, 30.11.1996');
+            assert.equal(result122, '25.11.1996');
+            assert.equal(result123, result119);
+            assert.equal(result124, '13.12.1996, 14.12.1996');
+            assert.equal(result125, result117);
+            assert.equal(result126, '25.11.1996, 26.11.1996');
+            assert.equal(result127, '22.01.1997, 23.01.1997');
+            assert.equal(result128, '03.12.1996, 04.12.1996');
+            assert.equal(result129, '22.11.1996, 23.11.1996');
+            assert.equal(result130, '');
+            assert.equal(result131, '25.12.2026 Friday December');
+            assert.equal(result132, '');
         });
 
         QUnit.test('format duration test', assert => {
