@@ -41,8 +41,34 @@ const RU_WORDS = {
     четверг: 'Thursday', четверга: 'Thursday', чт: 'Thursday',
     пятница: 'Friday', пятницу: 'Friday', пятницы: 'Friday', пт: 'Friday',
     суббота: 'Saturday', субботу: 'Saturday', субботы: 'Saturday', сб: 'Saturday',
-    воскресенье: 'Sunday', воскресенья: 'Sunday', вс: 'Sunday'
+    воскресенье: 'Sunday', воскресенья: 'Sunday', вс: 'Sunday',
+
+    'следующей неделе': 'next week', 'следующая неделя': 'next week', 'след неделе': 'next week', 'след неделя': 'next week',
+    'прошлой неделе': 'last week', 'прошлая неделя': 'last week',
+    'предыдущей неделе': 'last week', 'предыдущая неделя': 'last week',
+    'этой неделе': 'this week', 'эта неделя': 'this week', 'текущей неделе': 'this week', 'текущая неделя': 'this week',
+    'следующем месяце': 'next month', 'следующий месяц': 'next month', 'след месяце': 'next month', 'след месяц': 'next month',
+    'прошлом месяце': 'last month', 'прошлый месяц': 'last month',
+    'предыдущем месяце': 'last month', 'предыдущий месяц': 'last month',
+    'этом месяце': 'this month', 'этот месяц': 'this month', 'текущем месяце': 'this month', 'текущий месяц': 'this month',
+    'следующем году': 'next year', 'следующий год': 'next year', 'след году': 'next year', 'след год': 'next year',
+    'прошлом году': 'last year', 'прошлый год': 'last year',
+    'предыдущем году': 'last year', 'предыдущий год': 'last year',
+    'этом году': 'this year', 'этот год': 'this year', 'текущем году': 'this year', 'текущий год': 'this year',
+    'через неделю': 'in 1 week', 'через месяц': 'in 1 month', 'через год': 'in 1 year',
+    'через день': 'in 1 day', 'через час': 'in 1 hour', 'через минуту': 'in 1 minute',
+
+    следующий: 'next', следующая: 'next', следующее: 'next', следующую: 'next',
+    следующей: 'next', следующего: 'next', следующем: 'next', следующим: 'next', след: 'next',
+    будущий: 'next', будущая: 'next', будущую: 'next', будущем: 'next',
+    прошлый: 'last', прошлая: 'last', прошлую: 'last', прошлой: 'last',
+    прошлого: 'last', прошлом: 'last', прошлые: 'last',
+    предыдущий: 'last', предыдущая: 'last', предыдущую: 'last',
+    предыдущей: 'last', предыдущем: 'last', предыдущего: 'last', пред: 'last',
+    этот: 'this', эта: 'this', эту: 'this', этой: 'this', этого: 'this', этом: 'this',
+    текущий: 'this', текущая: 'this', текущую: 'this', текущем: 'this'
 };
+
 const RU_LETTERS = 'а-яёА-ЯЁ';
 const RU_WORDS_ALTERNATION = Object.keys(RU_WORDS)
     .sort((a, b) => b.length - a.length)
@@ -63,6 +89,16 @@ const LETTERS = 'a-zA-Zа-яёА-ЯЁ';
 const DURATION = new RegExp('^\\s*(?:[-+]?\\s*\\d+\\s*(?:' + UNIT_ALTERNATION + ')\\s*)+$', 'i');
 const SEGMENT_GLOBAL = new RegExp('\\d+\\s*[' + LETTERS + ']+', 'g');
 const SEGMENT_PARTS = new RegExp('(\\d+)\\s*([' + LETTERS + ']+)');
+//the spelled-out russian units only, single letters are too easy to hit by accident
+const RU_UNIT_ALTERNATION = Object.keys(UNITS)
+    .filter(unit => 1 < unit.length && new RegExp('^[' + RU_LETTERS + ']+$').test(unit))
+    .sort((a, b) => b.length - a.length)
+    .join('|');
+const RU_IN_REGEX = new RegExp('через\\s+(\\d+)\\s*(' + RU_UNIT_ALTERNATION + ')(?![' + RU_LETTERS + '])', 'gi');
+const RU_AGO_REGEX = new RegExp('(\\d+)\\s*(' + RU_UNIT_ALTERNATION + ')(?![' + RU_LETTERS + '])\\s+назад', 'gi');
+const BACKWARD_REGEX = new RegExp('\\b(last|past|ago|yesterday)\\b', 'i');
+//chrono ships more than english, so a date written anywhere else still lands
+const CHRONO_LOCALES = ['ru', 'uk', 'fr', 'nl', 'de', 'es', 'pt', 'it', 'fi', 'sv', 'ja', 'vi'];
 const CLOCK_PATTERN = 'DD.MM.YYYY HH:mm:ss dddd MMMM';
 const DATE_PATTERN = 'DD.MM.YYYY dddd MMMM';
 const SHARE_DATE = 'd';
@@ -76,6 +112,21 @@ const CAL_DOW = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
 const CAL_CELLS = 42;
 const CAL_KEY = 'YYYY-MM-DD';
 const CAL_INPUT_PATTERN = 'DD.MM.YYYY';
+//"* 2 days", "every 2 weeks", "каждые 3 дня" — the second field turns into a repeat step
+const PATTERN_REGEX = new RegExp('^\\s*(?:\\*|x|х|every|each|кажд[а-яё]*)\\s*(.+)$', 'i');
+//picked days live in the first field, one date per comma
+const SEED_SEPARATOR = ',';
+//a step of one day still has to stop somewhere, otherwise a far seed loops forever
+const PATTERN_LIMIT = 4000;
+const LONG_PRESS_MS = 450;
+//a finger never holds perfectly still, so a small drift is still a press
+const PRESS_SLOP = 12;
+const RRULE_FREQ = {
+    years: 'YEARLY', year: 'YEARLY',
+    months: 'MONTHLY', month: 'MONTHLY',
+    weeks: 'WEEKLY', week: 'WEEKLY',
+    days: 'DAILY', day: 'DAILY'
+};
 
 const LOCAL_ZONE = (function () {
     try {
@@ -91,12 +142,30 @@ let LAST_DURATION = false;
 let LAST_DATE = null;
 let LAST_TITLE = '';
 let LAST_ZONE = '';
+//every day the answer names, so a pattern can mark more than one
+let LAST_DATES = [];
 //both ends of a date-to-date result, so the grid can paint the span
 let LAST_RANGE = null;
 //month the grid is looking at, moves with the arrows
 let CAL_MONTH = null;
+//the grid stays put while the user is picking days on it
+let CAL_HOLD = false;
+
+//the repeat step, same shape as getOperations returns
+let PATTERN_STEP = null;
+//what the step actually repeats from: the picked days, or the typed date alone
+let PATTERN_SEEDS = [];
+//the real repeat: the picked block padded out to whole units, plus the step
+let PATTERN_CYCLE = null;
+
+let pressTimerId = null;
+let pressAt = null;
+let pressHandled = false;
 
 let SHARED_ZONE = null;
+
+//every chrono locale the bundle actually carries, filled on the first parse
+let PARSERS = null;
 
 let copiedTimerId = null;
 
@@ -215,25 +284,269 @@ const formatMoment = function (momentDate) {
 const keepDate = function (momentDate, title) {
 
     LAST_DATE = momentDate.clone();
+    LAST_DATES = [LAST_DATE.clone()];
     LAST_TITLE = title;
 
     return formatMoment(momentDate);
+};
+
+//the same shape the first field uses, so an answer can be pasted straight back in
+const formatPick = function (momentDate) {
+    return momentDate.format(CAL_INPUT_PATTERN) + (hasClockUnit(momentDate) ? momentDate.format(' HH:mm:ss') : '');
+};
+
+const keepDates = function (moments, title) {
+
+    LAST_DATES = moments.map(one => one.clone());
+    //the icons and the grid anchor still work off a single day, and the first one is it
+    LAST_DATE = LAST_DATES[0].clone();
+    LAST_TITLE = title;
+
+    return LAST_DATES.map(formatPick).join(SEED_SEPARATOR + ' ');
+};
+
+//a repeat has no direction and cannot stand still, "* -2 days" is the same as "* 2 days"
+const patternStepOf = function (value) {
+
+    let match = value.match(PATTERN_REGEX);
+
+    if (null == match) {
+        return null;
+    }
+
+    let rest = match[1].trim(),
+        //"every week" is "every 1 week"
+        operations = getOperations(/\d/.test(rest) ? rest : '1 ' + rest);
+
+    if (null == operations) {
+        return null;
+    }
+
+    operations = operations.map(op => ({num: Math.abs(op.num), unit: op.unit}));
+
+    return operations.some(op => 0 < op.num) ? operations : null;
+};
+
+const stepBy = function (day, direction) {
+    return PATTERN_CYCLE.reduce((acc, op) => acc.add(direction * op.num, op.unit), day.clone());
+};
+
+const stepLabel = function () {
+    return PATTERN_CYCLE.map(op => op.num + ' ' + op.unit).join(' ');
+};
+
+//how many whole units of the step the picked days themselves cover
+const blockUnits = function (first, last, unit) {
+
+    let units = 1;
+
+    while (units < PATTERN_LIMIT && !first.clone().add(units, unit).isAfter(last, 'day')) {
+        units++;
+    }
+
+    return units;
+};
+
+//"two days on, two days off": the block is padded to whole units, then the step is the gap after it
+const cycleOf = function (seeds) {
+
+    let sorted = seeds.slice().sort((a, b) => a - b),
+        //getOperations puts the smallest unit first, and that is the one the block is measured in
+        smallest = PATTERN_STEP[0],
+        units = blockUnits(sorted[0], sorted[sorted.length - 1], smallest.unit);
+
+    return PATTERN_STEP.map((op, i) => 0 === i ? {num: op.num + units, unit: op.unit} : op);
+};
+
+//days and weeks are always the same length, months and years are not
+const stepDays = function () {
+
+    let days = 0;
+
+    for (let i = 0; i < PATTERN_CYCLE.length; i++) {
+
+        let op = PATTERN_CYCLE[i];
+
+        if ('days' === op.unit || 'day' === op.unit) {
+            days += op.num;
+        } else if ('weeks' === op.unit || 'week' === op.unit) {
+            days += op.num * 7;
+        } else {
+            return 0;
+        }
+    }
+
+    return days;
+};
+
+//a fixed step lands next to the edge in one jump, so a seed years away costs nothing to draw
+const alignSeed = function (seed, edge) {
+
+    let days = stepDays();
+
+    if (0 === days) {
+        return seed.clone();
+    }
+
+    //floor keeps the landing at or before the edge, the walk after it does the last steps
+    let jumps = Math.floor(edge.diff(seed, 'days') / days);
+
+    //a pattern starts on the day that was picked, it never runs backwards out of it
+    return jumps < 0 ? seed.clone() : seed.clone().add(jumps * days, 'days');
+};
+
+//"December 25, 2026" splits into a date and a bare year, and a bare year names no day of its own
+const standsAlone = function (found, part) {
+    return !/\d/.test(part) || found.start.isCertain('day');
+};
+
+//english dates carry commas of their own, so a split only counts when every piece is a date by itself
+const splitSeeds = function (value, referenceDate) {
+
+    let parts = value.split(SEED_SEPARATOR)
+        .map(part => part.trim())
+        .filter(part => 0 !== part.length);
+
+    if (parts.length < 2) {
+        return null;
+    }
+
+    let found = parts.map(part => parseDate(part, referenceDate));
+
+    if (found.some((one, i) => null == one || !standsAlone(one, parts[i]))) {
+        return null;
+    }
+
+    return found.map(one => fixDate(one, one.start.moment()));
+};
+
+const seedKeys = function (value, referenceDate) {
+
+    let found = splitSeeds(value, referenceDate);
+
+    return null == found ? [] : found.map(one => one.format(CAL_KEY));
+};
+
+//the grid reads the picks straight off the field, so typing and clicking cannot drift apart
+const pickedKeys = function () {
+
+    let input = document.getElementsByClassName('input')[0];
+
+    return null == input ? [] : seedKeys(input.value.trim());
+};
+
+//the whole block moves together, so every picked day gets the same cycle added to it
+const findNextDates = function () {
+    return PATTERN_SEEDS.map(seed => stepBy(seed, 1));
+};
+
+//only the repeats the grid can actually show, walked out from every seed
+const patternMarks = function (month) {
+
+    let marks = new Set();
+
+    if (null == PATTERN_CYCLE || 0 === PATTERN_SEEDS.length) {
+        return marks;
+    }
+
+    let from = firstCell(month),
+        to = from.clone().add(CAL_CELLS - 1, 'days');
+
+    for (let i = 0; i < PATTERN_SEEDS.length; i++) {
+
+        let day = alignSeed(PATTERN_SEEDS[i], from);
+
+        for (let n = 0; n < PATTERN_LIMIT && !day.isAfter(to, 'day'); n++) {
+
+            if (!day.isBefore(from, 'day')) {
+                marks.add(day.format(CAL_KEY));
+            }
+
+            day = stepBy(day, 1);
+        }
+    }
+
+    return marks;
+};
+
+const dropPattern = function () {
+
+    PATTERN_STEP = null;
+    PATTERN_CYCLE = null;
+    PATTERN_SEEDS = [];
+
+    return '';
+};
+
+const calcPattern = function (value, referenceDate) {
+
+    if (0 === value.length) {
+        flashTooltip('pattern-tooltip');
+        return dropPattern();
+    }
+
+    let picked = splitSeeds(value, referenceDate);
+
+    if (null == picked) {
+
+        let one = parseDate(value, referenceDate);
+
+        if (null == one) {
+            flashTooltip('date-tooltip');
+            return dropPattern();
+        }
+
+        picked = [fixDate(one, one.start.moment())];
+    }
+
+    PATTERN_SEEDS = picked;
+    PATTERN_CYCLE = cycleOf(picked);
+
+    let nextDates = findNextDates();
+
+    if (0 === nextDates.length) {
+        flashTooltip('pattern-tooltip');
+        return dropPattern();
+    }
+
+    LAST_ZONE = zoneLabel(nextDates[0]) + ' · every ' + stepLabel();
+
+    return keepDates(nextDates, 'every ' + stepLabel());
 };
 
 const calcRes = function (inputs, referenceDate) {
 
     LAST_DURATION = false;
     LAST_DATE = null;
+    LAST_DATES = [];
     LAST_TITLE = '';
     LAST_ZONE = '';
     LAST_RANGE = null;
+
+    dropPattern();
 
     let elements = toElement(inputs),
         value_1 = elements[DATE_INPUT_NUMBER].value.trim(),
         value_2 = elements[ADD_INPUT_NUMBER].value.trim();
 
+    PATTERN_STEP = patternStepOf(value_2);
+
+    if (null != PATTERN_STEP) {
+        return calcPattern(value_1, referenceDate);
+    }
+
     if (0 === value_1.length) {
         return '';
+    }
+
+    //a list of picks with no step yet: the answer is the list itself, so the grid marks all of it
+    let picked = splitSeeds(value_1, referenceDate);
+
+    if (null != picked) {
+
+        LAST_ZONE = zoneLabel(picked[0]);
+
+        return keepDates(picked, value_1);
     }
 
     //parse to date, date input val
@@ -304,7 +617,7 @@ const isBetween = function (day) {
 
 const isPicked = function (day) {
 
-    if (null != LAST_DATE && day.isSame(LAST_DATE, 'day')) {
+    if (LAST_DATES.some(one => day.isSame(one, 'day'))) {
         return true;
     }
 
@@ -315,9 +628,10 @@ const isPicked = function (day) {
     return day.isSame(LAST_RANGE.from, 'day') || day.isSame(LAST_RANGE.to, 'day');
 };
 
-const dayClass = function (day, month, today) {
+const dayClass = function (day, month, today, marks, picked) {
 
-    let classes = ['cal-day'];
+    let classes = ['cal-day'],
+        key = day.format(CAL_KEY);
 
     if (day.month() !== month.month()) {
         classes.push('cal-out');
@@ -331,7 +645,11 @@ const dayClass = function (day, month, today) {
         classes.push('cal-range');
     }
 
-    if (isPicked(day)) {
+    if (marks.has(key)) {
+        classes.push('cal-pattern');
+    }
+
+    if (isPicked(day) || -1 !== picked.indexOf(key)) {
         classes.push('cal-sel');
     }
 
@@ -369,6 +687,8 @@ const calendarHtml = function (month) {
     let day = firstCell(month),
         today = moment(),
         stop = tabCell(month, today),
+        marks = patternMarks(month),
+        picked = pickedKeys(),
         html = '<div class="cal-head">'
             + '<button type="button" class="cal-nav" data-step="-1" aria-label="Previous month">&#8249;</button>'
             + '<span class="cal-title">' + month.format('MMMM YYYY') + '</span>'
@@ -384,7 +704,7 @@ const calendarHtml = function (month) {
         let key = day.format(CAL_KEY);
 
         html += '<button type="button" tabindex="' + (key === stop ? '0' : '-1') + '"'
-            + ' class="' + dayClass(day, month, today) + '"'
+            + ' class="' + dayClass(day, month, today, marks, picked) + '"'
             + ' data-day="' + key + '">' + day.date() + '</button>';
 
         day.add(1, 'days');
@@ -414,7 +734,8 @@ const syncCalendar = function () {
 
     let anchor = calAnchor();
 
-    if (null != anchor) {
+    //picking a day must not throw the month away under the finger that picked it
+    if (null != anchor && !CAL_HOLD) {
         CAL_MONTH = anchor.startOf('month');
     }
 
@@ -451,7 +772,96 @@ const clockOf = function (value) {
     return hasClockUnit(time) ? ' ' + time.format('HH:mm:ss') : '';
 };
 
+//the field already holds one date without a comma, so it joins the list rather than being replaced
+const currentKeys = function (value) {
+
+    let keys = seedKeys(value);
+
+    if (0 !== keys.length || 0 === value.length) {
+        return keys;
+    }
+
+    let one = parseDate(value);
+
+    return null == one ? [] : [fixDate(one, one.start.moment()).format(CAL_KEY)];
+};
+
+const toggleSeed = function (key) {
+
+    let input = document.getElementsByClassName('input')[0],
+        keys = currentKeys(input.value.trim()),
+        at = keys.indexOf(key);
+
+    if (-1 === at) {
+        keys.push(key);
+    } else {
+        keys.splice(at, 1);
+    }
+
+    keys.sort();
+
+    input.value = keys
+        .map(one => moment(one, CAL_KEY).format(CAL_INPUT_PATTERN))
+        .join(SEED_SEPARATOR + ' ');
+
+    CAL_HOLD = true;
+    runCalc();
+    CAL_HOLD = false;
+};
+
+const cancelPress = function () {
+
+    window.clearTimeout(pressTimerId);
+
+    pressTimerId = null;
+    pressAt = null;
+};
+
+//touch has no shift key, so holding a day does the same job
+const onCalendarPointerDown = function (e) {
+
+    if ('mouse' === e.pointerType) {
+        return;
+    }
+
+    let cell = e.target.closest('.cal-day');
+
+    if (null == cell) {
+        return;
+    }
+
+    let key = cell.dataset.day;
+
+    pressHandled = false;
+    pressAt = {x: e.clientX, y: e.clientY};
+
+    window.clearTimeout(pressTimerId);
+
+    pressTimerId = window.setTimeout(() => {
+        pressTimerId = null;
+        pressHandled = true;
+        toggleSeed(key);
+    }, LONG_PRESS_MS);
+};
+
+const onCalendarPointerMove = function (e) {
+
+    if (null == pressAt) {
+        return;
+    }
+
+    if (PRESS_SLOP < Math.abs(e.clientX - pressAt.x) + Math.abs(e.clientY - pressAt.y)) {
+        cancelPress();
+    }
+};
+
 const onCalendarClick = function (e) {
+
+    //the long press already answered, the click it drags behind it is noise
+    if (pressHandled) {
+        pressHandled = false;
+        return;
+    }
 
     let nav = e.target.closest('.cal-nav');
 
@@ -476,6 +886,11 @@ const onCalendarClick = function (e) {
     let cell = e.target.closest('.cal-day');
 
     if (null == cell) {
+        return;
+    }
+
+    if (e.shiftKey) {
+        toggleSeed(cell.dataset.day);
         return;
     }
 
@@ -520,9 +935,12 @@ const renderEmpty = function () {
 
     LAST_DURATION = false;
     LAST_DATE = null;
+    LAST_DATES = [];
     LAST_TITLE = '';
     LAST_ZONE = '';
     LAST_RANGE = null;
+
+    dropPattern();
 
     let result = document.getElementById('result'),
         zone = document.getElementById('timezone');
@@ -539,9 +957,16 @@ const renderEmpty = function () {
     renderCalendar();
 };
 
+//a list of dates outgrows a field sized for one
+const fitInput = function (input) {
+    input.classList.toggle('input-wide', -1 !== input.value.indexOf(SEED_SEPARATOR));
+};
+
 const runCalc = function () {
 
     let inputs = Array.from(document.getElementsByClassName('input'));
+
+    fitInput(inputs[0]);
 
     //an empty first field is a reset, not a failed parse
     if (0 === inputs[0].value.trim().length) {
@@ -723,11 +1148,55 @@ const capitalize = function (word) {
     return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
 };
 
-//chrono has no russian locale, so swap the words it knows about before parsing
+//chrono reads english best, so swap the russian words it knows about before parsing
 const translate = function (string) {
     return string
         .replace(RU_WORDS_REGEX, (all, before, word) => before + RU_WORDS[word.toLowerCase()])
+        .replace(RU_IN_REGEX, (all, num, unit) => 'in ' + num + ' ' + formatUnits(unit))
+        .replace(RU_AGO_REGEX, (all, num, unit) => num + ' ' + formatUnits(unit) + ' ago')
         .replace(CASE_REGEX, capitalize);
+};
+
+//chrono.min.js loads after this file, so the list can only be built on the first parse
+const localeParsers = function () {
+
+    if (null != PARSERS) {
+        return PARSERS;
+    }
+
+    PARSERS = [];
+
+    for (let i = 0; i < CHRONO_LOCALES.length; i++) {
+
+        let parser = chrono[CHRONO_LOCALES[i]];
+
+        if (null != parser && 'function' === typeof parser.parse) {
+            PARSERS.push(parser);
+        }
+    }
+
+    if (null != chrono.zh && null != chrono.zh.hant) {
+        PARSERS.push(chrono.zh.hant);
+    }
+
+    return PARSERS;
+};
+
+//forwardDate drags a bare date into the future, which is wrong once the text says otherwise
+const parseWith = function (parser, string, referenceDate) {
+    return parser.parse(string, referenceDate, {forwardDate: !BACKWARD_REGEX.test(string)})[0];
+};
+
+//chrono puts a bare date at midday, the app wants the day itself with no clock on it
+const parseAtMidnight = function (parser, string, referenceDate) {
+
+    let found = parseWith(parser, string, referenceDate);
+
+    if (null == found || HAS_TIME_REGEX.test(string)) {
+        return found;
+    }
+
+    return parseWith(parser, string + ' 00:00:00', referenceDate) || found;
 };
 
 const parseDate = function (string, /*for tests*/ referenceDate) {
@@ -738,20 +1207,27 @@ const parseDate = function (string, /*for tests*/ referenceDate) {
         return null;
     }
 
-    //easy, but bad, it parse words-dates, ether way u need to known all words
-    let isDate = chrono.parseDate(string, referenceDate) !== null,
-        params = {forwardDate: true};
-
-    if (isDate) {
-        string = HAS_TIME_REGEX.test(string) ? string : string + ' 00:00:00';
-    }
-
     //chrono default is month-first (US), en_GB is day-first
-    if (RUS_DATE_REGEX.test(string)) {
-        return chrono.en_GB.parse(string, referenceDate, {forwardDate: true})[0];
+    let english = RUS_DATE_REGEX.test(string) ? chrono.en_GB : chrono,
+        found = parseAtMidnight(english, string, referenceDate);
+
+    if (null != found) {
+        return found;
     }
 
-    return chrono.parse(string, referenceDate, params)[0];
+    //english had nothing, the words may belong to another language chrono knows
+    let rest = localeParsers();
+
+    for (let i = 0; i < rest.length; i++) {
+
+        found = parseAtMidnight(rest[i], string, referenceDate);
+
+        if (null != found) {
+            return found;
+        }
+    }
+
+    return null;
 };
 
 const fixDate = function (chronoObj, momentDate) {
@@ -761,6 +1237,18 @@ const fixDate = function (chronoObj, momentDate) {
     }
 
     return momentDate;
+};
+
+//google takes a single frequency, so a mixed step like "1 month 2 days" stays a one-off event
+const patternRule = function () {
+
+    if (null == PATTERN_CYCLE || 1 !== PATTERN_CYCLE.length) {
+        return null;
+    }
+
+    let freq = RRULE_FREQ[PATTERN_CYCLE[0].unit];
+
+    return null == freq ? null : 'RRULE:FREQ=' + freq + ';INTERVAL=' + PATTERN_CYCLE[0].num;
 };
 
 const buildCalendarUrl = function () {
@@ -779,6 +1267,12 @@ const buildCalendarUrl = function () {
         params.set('dates', start.format('YYYYMMDD[T]HHmmss') + '/' + start.clone().add(CALENDAR_MINUTES, 'minutes').format('YYYYMMDD[T]HHmmss'));
     } else {
         params.set('dates', start.format('YYYYMMDD') + '/' + start.clone().add(1, 'day').format('YYYYMMDD'));
+    }
+
+    let rule = patternRule();
+
+    if (null != rule) {
+        params.set('recur', rule);
     }
 
     if (LOCAL_ZONE) {
@@ -910,7 +1404,20 @@ window.onload = function () {
 
     document.getElementById('share-btn').addEventListener('click', onShare);
     document.getElementById('calendar-btn').addEventListener('click', onCalendar);
-    document.getElementById('calendar-view').addEventListener('click', onCalendarClick);
+    let view = document.getElementById('calendar-view');
+
+    view.addEventListener('click', onCalendarClick);
+    view.addEventListener('pointerdown', onCalendarPointerDown);
+    view.addEventListener('pointermove', onCalendarPointerMove);
+    view.addEventListener('pointerup', cancelPress);
+    view.addEventListener('pointercancel', cancelPress);
+    view.addEventListener('contextmenu', (e) => {
+
+        //the hold is the gesture, the os menu would eat it
+        if (null != e.target.closest('.cal-day')) {
+            e.preventDefault();
+        }
+    });
 
     document.getElementById('result').addEventListener('click', (e) => {
 
@@ -923,6 +1430,8 @@ window.onload = function () {
 
     //reset if pass empty
     inputs[0].addEventListener('input', () => {
+
+        fitInput(inputs[0]);
 
         if (0 === inputs[0].value.trim().length) {
             renderEmpty();

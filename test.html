@@ -138,6 +138,49 @@
                 , case87 = makeInputs('22.11.1996', '29.11.1996')
                 , case88 = makeInputs('29.11.1996', '22.11.1996')
                 , case89 = makeInputs('22.11.1996', '22.11.1996')
+
+                //'next friday', in the forms a russian speaker types it
+                , case90 = makeInputs('next Friday', '')
+                , case91 = makeInputs('следующая пятница', '')
+                , case92 = makeInputs('след пятница', '')
+                , case93 = makeInputs('в следующую пятницу', '')
+                , case94 = makeInputs('СЛЕДУЮЩАЯ ПЯТНИЦА', '')
+
+                //'last' points backwards, so forwardDate has to stay off for it
+                , case95 = makeInputs('last Friday', '')
+                , case96 = makeInputs('предыдущая пятница', '')
+                , case97 = makeInputs('в предыдущую пятницу', '')
+                , case98 = makeInputs('пред пятница', '')
+
+                //a period is a unit everywhere else, so it only travels as a whole phrase
+                , case99 = makeInputs('next week', '')
+                , case100 = makeInputs('следующая неделя', '')
+                , case101 = makeInputs('на следующей неделе', '')
+                , case102 = makeInputs('last month', '')
+                , case103 = makeInputs('прошлый месяц', '')
+                , case104 = makeInputs('в предыдущем месяце', '')
+                , case105 = makeInputs('next year', '')
+                , case106 = makeInputs('следующий год', '')
+                , case107 = makeInputs('в следующем году', '')
+
+                //a relative date is a date like any other, so it takes units too
+                , case108 = makeInputs('next Monday', '1 день')
+                , case109 = makeInputs('следующий понедельник', '1 день')
+
+                //a phrase must not eat the plain duration in the second field
+                , case110 = makeInputs('22.11.1996', '1 неделя')
+
+                //'через' and 'назад' carry their own number
+                , case111 = makeInputs('через неделю', '')
+                , case112 = makeInputs('in 1 week', '')
+                , case113 = makeInputs('через 3 дня', '')
+                , case114 = makeInputs('in 3 days', '')
+                , case115 = makeInputs('5 дней назад', '')
+                , case116 = makeInputs('5 days ago', '')
+                , case117 = makeInputs('22.11.1996, 23.11.1996', '* 2 d')
+                , case118 = makeInputs('22.11.1996, 23.11.1996', 'every week')
+                , case119 = makeInputs('22.11.1996, 23.11.1996', 'every 3 days')
+
             ;
 
             //WHEN
@@ -231,6 +274,36 @@
                 , result87 = calcRes(case87)
                 , result88 = calcRes(case88)
                 , result89 = calcRes(case89)
+                , result90 = calcRes(case90, REFERENCE)
+                , result91 = calcRes(case91, REFERENCE)
+                , result92 = calcRes(case92, REFERENCE)
+                , result93 = calcRes(case93, REFERENCE)
+                , result94 = calcRes(case94, REFERENCE)
+                , result95 = calcRes(case95, REFERENCE)
+                , result96 = calcRes(case96, REFERENCE)
+                , result97 = calcRes(case97, REFERENCE)
+                , result98 = calcRes(case98, REFERENCE)
+                , result99 = calcRes(case99, REFERENCE)
+                , result100 = calcRes(case100, REFERENCE)
+                , result101 = calcRes(case101, REFERENCE)
+                , result102 = calcRes(case102, REFERENCE)
+                , result103 = calcRes(case103, REFERENCE)
+                , result104 = calcRes(case104, REFERENCE)
+                , result105 = calcRes(case105, REFERENCE)
+                , result106 = calcRes(case106, REFERENCE)
+                , result107 = calcRes(case107, REFERENCE)
+                , result108 = calcRes(case108, REFERENCE)
+                , result109 = calcRes(case109, REFERENCE)
+                , result110 = calcRes(case110)
+                , result111 = calcRes(case111, REFERENCE)
+                , result112 = calcRes(case112, REFERENCE)
+                , result113 = calcRes(case113, REFERENCE)
+                , result114 = calcRes(case114, REFERENCE)
+                , result115 = calcRes(case115, REFERENCE)
+                , result116 = calcRes(case116, REFERENCE)
+                , result117 = calcRes(case117)
+                , result118 = calcRes(case118)
+                , result119 = calcRes(case119)
             ;
 
             //THEN
@@ -332,6 +405,47 @@
             assert.equal(result87, '7 days');
             assert.equal(result88, '7 days');
             assert.equal(result89, '0 days');
+
+            //chrono owns which friday 'next friday' is, the russian forms only have to land on the same one
+            assert.ok(-1 !== result90.indexOf('Friday November'), result90);
+            assert.equal(result91, result90);
+            assert.equal(result92, result90);
+            assert.equal(result93, result90);
+            assert.equal(result94, result90);
+
+            assert.ok(-1 !== result95.indexOf('Friday November'), result95);
+            assert.equal(result96, result95);
+            assert.equal(result97, result95);
+            assert.equal(result98, result95);
+
+            //a date behind the reference must stay behind it
+            assert.notEqual(result95, result90);
+
+            assert.ok(0 !== result99.length, result99);
+            assert.equal(result100, result99);
+            assert.equal(result101, result99);
+
+            assert.ok(0 !== result102.length, result102);
+            assert.equal(result103, result102);
+            assert.equal(result104, result102);
+
+            assert.ok(0 !== result105.length, result105);
+            assert.equal(result106, result105);
+            assert.equal(result107, result105);
+
+            assert.equal(result109, result108);
+
+            assert.equal(result110, '29.11.1996 Friday November');
+
+            assert.equal(result111, result112);
+            assert.equal(result113, result114);
+            assert.equal(result115, result116);
+
+            assert.notEqual(result115, result113);
+
+            assert.equal(result117, '26.11.1996, 27.11.1996');
+            assert.equal(result118, '06.12.1996, 07.12.1996');
+            assert.equal(result119, '27.11.1996, 28.11.1996');
         });
 
         QUnit.test('format duration test', assert => {
