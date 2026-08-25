@@ -19,11 +19,11 @@ const UNITS = {
 
     годы: 'years', года: 'years', год: 'year', лет: 'years', г: 'year',
     месяцы: 'months', месяца: 'months', месяц: 'month', месяцев: 'months', мес: 'months',
-    недели: 'weeks', неделя: 'week', недель: 'weeks', нед: 'weeks', н: 'weeks',
+    недели: 'weeks', неделя: 'week', неделю: 'week', недель: 'weeks', нед: 'weeks', н: 'weeks',
     дни: 'days', дня: 'days', день: 'day', дней: 'days', д: 'days',
     часы: 'hours', часа: 'hours', час: 'hour', часов: 'hours', ч: 'hours',
-    минуты: 'minutes', минута: 'minutes', минут: 'minutes', мин: 'minutes', м: 'minutes',
-    секунды: 'seconds', секунда: 'seconds', секунд: 'seconds', сек: 'seconds', с: 'seconds'
+    минуты: 'minutes', минута: 'minutes', минуту: 'minutes', минут: 'minutes', мин: 'minutes', м: 'minutes',
+    секунды: 'seconds', секунда: 'seconds', секунду: 'seconds', секунд: 'seconds', сек: 'seconds', с: 'seconds'
 };
 const UNIT_ORDER = ['years', 'months', 'weeks', 'days', 'hours', 'minutes', 'seconds'];
 const RU_WORDS = {
@@ -68,6 +68,8 @@ const RU_WORDS = {
     этот: 'this', эта: 'this', эту: 'this', этой: 'this', этого: 'this', этом: 'this',
     текущий: 'this', текущая: 'this', текущую: 'this', текущем: 'this'
 };
+
+const CASUAL_DAYS = {today: 0, tomorrow: 1, tmr: 1, yesterday: -1};
 
 const RU_LETTERS = 'а-яёА-ЯЁ';
 //one cheap look before the three russian passes, an english string skips all of them
@@ -121,6 +123,15 @@ const PLAIN_DATE_REGEX = new RegExp('^\\d{2}\\.\\d{2}\\.\\d{4}$');
 //"* 2 days", "every 2 weeks", "каждые 3 дня" — the second field turns into a repeat step
 const PATTERN_REGEX = new RegExp('^\\s*(?:\\*|x|х|every|each|кажд[а-яё]*)\\s*(.+)$', 'i');
 const SEED_SEPARATOR = ',';
+//a dash between spaces is never part of a date, so that split is taken as read; a bare one
+//might be (1996-11-22, 25-12-2026), so it is only a separator when both halves prove they are days
+const RANGE_REGEX = new RegExp('\\s+[-\u2013\u2014]\\s+');
+const RANGE_DASHES = '-\u2013\u2014';
+const RANGE_SEPARATOR = ' - ';
+//three days written out still read as three days, a fourth is where a range wins
+const RANGE_MIN = 4;
+//a range is typed, so a typo like a year in the wrong field must not build a million days
+const RANGE_LIMIT = 2000;
 //a step of one day still has to stop somewhere, otherwise a far seed loops forever
 const PATTERN_LIMIT = 4000;
 const LONG_PRESS_MS = 450;
@@ -310,11 +321,42 @@ const keepDates = function (moments, title, note) {
     LAST_TITLE = title;
     LAST_ZONE = zoneLabel(LAST_DATES[0]) + (null == note ? '' : ' · ' + note);
 
-    return LAST_DATES.map(formatPick).join(SEED_SEPARATOR + ' ');
+    return formatPicks(LAST_DATES);
 };
 
 const formatPick = function (momentDate) {
     return momentDate.format(CAL_INPUT_PATTERN) + (hasClockUnit(momentDate) ? momentDate.format(' HH:mm:ss') : '');
+};
+
+//an unbroken run of plain days is what a range is short for, so it is written back as one
+const isRun = function (moments) {
+
+    if (moments.length < RANGE_MIN) {
+        return false;
+    }
+
+    for (let i = 0; i < moments.length; i++) {
+
+        if (hasClockUnit(moments[i])) {
+            return false;
+        }
+
+        //a day is not always 24 hours, so the gap is compared as a date and not as a length
+        if (0 < i && !moments[i].clone().subtract(1, 'days').isSame(moments[i - 1], 'day')) {
+            return false;
+        }
+    }
+
+    return true;
+};
+
+const formatPicks = function (moments) {
+
+    if (isRun(moments)) {
+        return formatPick(moments[0]) + RANGE_SEPARATOR + formatPick(moments[moments.length - 1]);
+    }
+
+    return moments.map(formatPick).join(SEED_SEPARATOR + ' ');
 };
 
 //a repeat has no direction and cannot stand still, "* -2 days" is the same as "* 2 days"
@@ -345,6 +387,28 @@ const stepBy = function (step, day) {
 
 const stepLabel = function (step) {
     return step.map(op => op.num + ' ' + op.unit).join(' ');
+};
+
+const blockUnits = function (first, last, unit) {
+
+    //diff lands on or just under the answer, so the walk that follows is a step or two, not a year
+    let units = Math.max(1, last.diff(first, unit));
+
+    while (units < PATTERN_LIMIT && !first.clone().add(units, unit).isAfter(last, 'day')) {
+        units++;
+    }
+
+    return units;
+};
+
+//"four days on, four days off": a range is a block of days, so it comes round again after the
+//block itself and then the step. A comma list is loose days, and each of those only takes the step
+const cycleOf = function (step, seeds) {
+
+    //getOperations puts the smallest unit first, and that is the one the block is measured in
+    let units = blockUnits(seeds[0], seeds[seeds.length - 1], step[0].unit);
+
+    return step.map((op, i) => 0 === i ? {num: op.num + units, unit: op.unit} : op);
 };
 
 //days and weeks are always the same length, months and years are not
@@ -409,9 +473,104 @@ const splitSeeds = function (value, referenceDate) {
     return found.map(one => fixDate(one, one.start.moment()));
 };
 
+const parseOne = function (value, referenceDate) {
+
+    let found = parseDate(value, referenceDate);
+
+    return null == found ? null : fixDate(found, found.start.moment());
+};
+
+//every way the value could be read as two ends: the spaced dash first, since that one is
+//never part of a date, then each bare dash for "22.11.1996-25.11.1996"
+const rangePairs = function (value) {
+
+    let spaced = value.split(RANGE_REGEX);
+
+    if (2 === spaced.length) {
+        return [spaced];
+    }
+
+    let pairs = [];
+
+    //never the first or last character: an end of a range cannot be empty
+    for (let i = 1; i < value.length - 1; i++) {
+
+        if (-1 !== RANGE_DASHES.indexOf(value[i])) {
+            pairs.push([value.slice(0, i), value.slice(i + 1)]);
+        }
+    }
+
+    return pairs;
+};
+
+//the same test the comma list uses: the "1996" out of 1996-11-22 is a year, and a year is
+//not an end, because an end has to name a day of its own
+const rangeEnd = function (part, referenceDate) {
+
+    let text = part.trim();
+
+    if (0 === text.length) {
+        return null;
+    }
+
+    let found = parseDate(text, referenceDate);
+
+    return null == found || !standsAlone(found, text) ? null : fixDate(found, found.start.moment());
+};
+
+const rangeDays = function (pair, referenceDate) {
+
+    let from = rangeEnd(pair[0], referenceDate),
+        to = rangeEnd(pair[1], referenceDate);
+
+    if (null == from || null == to) {
+        return null;
+    }
+
+    //a range has two ends and no direction, whichever order they were typed in
+    if (from.isAfter(to)) {
+        let swap = from;
+        from = to;
+        to = swap;
+    }
+
+    let all = [],
+        day = from.clone();
+
+    while (!day.isAfter(to, 'day') && all.length <= RANGE_LIMIT) {
+        all.push(day.clone());
+        day.add(1, 'days');
+    }
+
+    return RANGE_LIMIT < all.length ? null : all;
+};
+
+//"today - 29.08.2026" is the short way of writing every day in between, which is what
+//the grid hands back once a picked run outgrows a comma list
+const splitRange = function (value, referenceDate) {
+
+    let pairs = rangePairs(value);
+
+    for (let i = 0; i < pairs.length; i++) {
+
+        let days = rangeDays(pairs[i], referenceDate);
+
+        if (null != days) {
+            return days;
+        }
+    }
+
+    return null;
+};
+
+//both ways of naming a list of days, so the grid marks a range the way it marks a list
+const splitDays = function (value, referenceDate) {
+    return splitSeeds(value, referenceDate) || splitRange(value, referenceDate);
+};
+
 const seedKeys = function (value, referenceDate) {
 
-    let found = splitSeeds(value, referenceDate);
+    let found = splitDays(value, referenceDate);
 
     return null == found ? [] : found.map(one => one.format(CAL_KEY));
 };
@@ -483,29 +642,38 @@ const resetState = function () {
     LAST_PATTERN = null;
 };
 
-//the first field is a list of days either way, one long or several, and both paths want it resolved
+//the first field is a list of days either way, one long or several, and both paths want it
+//resolved. A range says the days belong together, and a repeat treats that block as one thing
 const resolveDates = function (value, referenceDate) {
 
-    //splitSeeds is the validation: it only answers when every comma piece is a date standing alone
-    let picked = splitSeeds(value, referenceDate);
+    //each split is the validation of its own shape: it only answers when every piece is a date
+    let listed = splitSeeds(value, referenceDate);
 
-    if (null != picked) {
-        return picked;
+    if (null != listed) {
+        return {days: listed, block: false};
     }
 
-    let one = parseDate(value, referenceDate);
+    let span = splitRange(value, referenceDate);
 
-    return null == one ? null : [fixDate(one, one.start.moment())];
+    if (null != span) {
+        return {days: span, block: true};
+    }
+
+    let one = parseOne(value, referenceDate);
+
+    return null == one ? null : {days: [one], block: false};
 };
 
-//the step is the whole repeat: every picked day moves by it, and nothing else does
-const calcPattern = function (step, seeds) {
+//the label is always the step that was typed, the cycle is what the days actually move by
+const calcPattern = function (step, picked) {
 
-    let label = 'every ' + stepLabel(step);
+    let seeds = picked.days,
+        cycle = picked.block ? cycleOf(step, seeds) : step,
+        label = 'every ' + stepLabel(step);
 
-    LAST_PATTERN = {step: step, seeds: seeds};
+    LAST_PATTERN = {step: cycle, seeds: seeds};
 
-    return keepDates(seeds.map(seed => stepBy(step, seed)), label, label);
+    return keepDates(seeds.map(seed => stepBy(cycle, seed)), label, label);
 };
 
 const calcRes = function (inputs, referenceDate) {
@@ -521,17 +689,18 @@ const calcRes = function (inputs, referenceDate) {
     }
 
     //one resolution for every path below, so a bad date is caught once and never parsed twice
-    let dates = resolveDates(value_1, referenceDate);
+    let picked = resolveDates(value_1, referenceDate);
 
-    if (null == dates) {
+    if (null == picked) {
         flashTooltip('date-tooltip');
         return '';
     }
 
-    let step = patternStepOf(value_2);
+    let dates = picked.days,
+        step = patternStepOf(value_2);
 
     if (null != step) {
-        return calcPattern(step, dates);
+        return calcPattern(step, picked);
     }
 
     if (1 < dates.length) {
@@ -819,9 +988,7 @@ const toggleSeed = function (key) {
 
     keys.sort();
 
-    input.value = keys
-        .map(one => moment(one, CAL_KEY).format(CAL_INPUT_PATTERN))
-        .join(SEED_SEPARATOR + ' ');
+    input.value = formatPicks(keys.map(one => moment(one, CAL_KEY)));
 
     CAL_HOLD = true;
     runCalc();
@@ -949,6 +1116,7 @@ const renderResult = function (text) {
     syncCalendar();
 };
 
+//nothing typed is the state the page loads in, month the grid opens on included
 const renderEmpty = function () {
 
     resetState();
@@ -970,9 +1138,12 @@ const renderEmpty = function () {
     renderCalendar();
 };
 
-//a list of dates outgrows a field sized for one
+//a list of dates, or a range, outgrows a field sized for one
 const fitInput = function (input) {
-    input.classList.toggle('input-wide', -1 !== input.value.indexOf(SEED_SEPARATOR));
+
+    let value = input.value;
+
+    input.classList.toggle('input-wide', -1 !== value.indexOf(SEED_SEPARATOR) || RANGE_REGEX.test(value));
 };
 
 const runCalc = function () {
@@ -1227,6 +1398,22 @@ const plainDate = function (string) {
     return day.isValid() ? {text: string, start: {moment: () => day.clone(), isCertain: () => true}} : null;
 };
 
+//the same shortcut plainDate takes for a numeric date: the answer is known, so nothing
+//about it is left to a parser that would rather have an hour before it commits to a day
+const casualDate = function (string, referenceDate) {
+
+    let word = string.trim().toLowerCase();
+
+    if (!CASUAL_DAYS.hasOwnProperty(word)) {
+        return null;
+    }
+
+    let day = moment(referenceDate).startOf('day').add(CASUAL_DAYS[word], 'days');
+
+    //a day word leaves nothing implied, so every field of it is certain
+    return {text: string, start: {moment: () => day.clone(), isCertain: () => true}};
+};
+
 const parseDate = function (string, /*for tests*/ referenceDate) {
 
     let plain = plainDate(string.trim());
@@ -1239,6 +1426,13 @@ const parseDate = function (string, /*for tests*/ referenceDate) {
 
     if (DURATION.test(string)) {
         return null;
+    }
+
+    //after translate, so 'завтра' arrives here as the word it means
+    let casual = casualDate(string, referenceDate);
+
+    if (null != casual) {
+        return casual;
     }
 
     //chrono default is month-first (US), en_GB is day-first

@@ -31,466 +31,273 @@
 
             const REFERENCE = new Date(1996, 10, 22);
 
-            //GIVEN
-            let case1 = makeInputs('22.11.1996', '- 40 weeks')
-                , case2 = makeInputs('22.11.1996', '-40 weeks')
-                , case3 = makeInputs('22.11.1996', '40 weeks')
-                , case4 = makeInputs('22.11.1996', '-4 weeks 4 days')
-                , case5 = makeInputs('02.05.26 22.00', '18h30m')
-                , case6 = makeInputs('02.05.26 22.00', '18 hours 45 minutes')
-                , case7 = makeInputs('22.11.1996 00.00', '3 sec')
-                , case8 = makeInputs('22 Nov 1996', '33y')
-                , case9 = makeInputs('22.11.1996', '1 год')
-                , case10 = makeInputs('22.11.1996', '1 года')
-                , case11 = makeInputs('22.11.1996', '1 годы')
-                , case12 = makeInputs('22.11.1996', '1 лет')
-                , case13 = makeInputs('22.11.1996', '1 г')
-                , case14 = makeInputs('22.11.1996', '1 месяц')
-                , case15 = makeInputs('22.11.1996', '1 месяца')
-                , case16 = makeInputs('22.11.1996', '1 месяцы')
-                , case17 = makeInputs('22.11.1996', '1 месяцев')
-                , case18 = makeInputs('22.11.1996', '1 мес')
-                , case19 = makeInputs('22.11.1996', '1 неделя')
-                , case20 = makeInputs('22.11.1996', '1 недели')
-                , case21 = makeInputs('22.11.1996', '1 недель')
-                , case22 = makeInputs('22.11.1996', '1 нед')
-                , case23 = makeInputs('22.11.1996', '1 н')
-                , case24 = makeInputs('22.11.1996', '1 день')
-                , case25 = makeInputs('22.11.1996', '1 дня')
-                , case26 = makeInputs('22.11.1996', '1 дни')
-                , case27 = makeInputs('22.11.1996', '1 дней')
-                , case28 = makeInputs('22.11.1996', '1 д')
-                , case29 = makeInputs('22.11.1996', '1 час')
-                , case30 = makeInputs('22.11.1996', '1 часа')
-                , case31 = makeInputs('22.11.1996', '1 часы')
-                , case32 = makeInputs('22.11.1996', '1 часов')
-                , case33 = makeInputs('22.11.1996', '1 ч')
-                , case34 = makeInputs('22.11.1996', '1 минута')
-                , case35 = makeInputs('22.11.1996', '1 минуты')
-                , case36 = makeInputs('22.11.1996', '1 минут')
-                , case37 = makeInputs('22.11.1996', '1 мин')
-                , case38 = makeInputs('22.11.1996', '1 м')
-                , case39 = makeInputs('22.11.1996', '1 секунда')
-                , case40 = makeInputs('22.11.1996', '1 секунды')
-                , case41 = makeInputs('22.11.1996', '1 секунд')
-                , case42 = makeInputs('22.11.1996', '1 сек')
-                , case43 = makeInputs('22.11.1996', '1 с')
-                , case44 = makeInputs('22.11.1996', '3 месяца')
-                , case45 = makeInputs('22.11.1996', '-1 неделя')
-                , case46 = makeInputs('22.11.1996', '- 1 неделя')
-                , case47 = makeInputs('22.11.1996', '1д')
-                , case48 = makeInputs('22.11.1996', '1ч30м')
-                , case49 = makeInputs('22.11.1996', '1 день 2 часа 3 минуты')
-                , case50 = makeInputs('22.11.1996', '1 week 1 день')
-                , case51 = makeInputs('22.11.1996', '1 ДЕНЬ')
-                , case52 = makeInputs('сегодня', '+ 4 дня')
-                , case53 = makeInputs('сейчас', '+ 4 дня')
-                , case54 = makeInputs('щас', '+ 4 дня')
+            const check = function (first, second, expected) {
 
-                //english weekday, in every case the keyboard can produce
-                , case55 = makeInputs('Monday', '')
-                , case56 = makeInputs('monday', '')
-                , case57 = makeInputs('MONDAY', '')
-                , case58 = makeInputs('Mon', '')
-                , case59 = makeInputs('mon', '')
+                let actual = calcRes(makeInputs(first, second));
 
-                //russian weekdays, in the forms a russian speaker types
-                , case60 = makeInputs('понедельник', '')
-                , case61 = makeInputs('ПОНЕДЕЛЬНИК', '')
-                , case62 = makeInputs('в понедельник', '')
-                , case63 = makeInputs('пн', '')
-                , case64 = makeInputs('вторник', '')
-                , case65 = makeInputs('вт', '')
-                , case66 = makeInputs('среду', '')
-                , case67 = makeInputs('ср', '')
-                , case68 = makeInputs('четверг', '')
-                , case69 = makeInputs('чт', '')
+                if (null != expected) {
+                    assert.equal(actual, expected, first + ' | ' + second);
+                }
 
-                //friday is the reference day itself, so chrono picks the day, both spellings only have to agree
-                , case70 = makeInputs('Friday', '')
-                , case71 = makeInputs('пятницу', '')
-                , case72 = makeInputs('пт', '')
+                return actual;
+            };
 
-                , case73 = makeInputs('субботу', '')
-                , case74 = makeInputs('сб', '')
-                , case75 = makeInputs('воскресенье', '')
-                , case76 = makeInputs('вс', '')
+            const checkWithRef = function (first, second, expected) {
 
-                //a weekday is a date like any other, so it takes units too
-                , case77 = makeInputs('понедельник', '1 день')
-                , case78 = makeInputs('пн', '2 недели')
+                let actual = calcRes(makeInputs(first, second), REFERENCE);
 
-                //short weekday forms must not fire inside a longer word
-                , case79 = makeInputs('22.11.1996', '5 дней')
+                if (null != expected) {
+                    assert.equal(actual, expected, first + ' | ' + second);
+                }
 
-                //months, in every case the keyboard can produce
-                , case80 = makeInputs('5 August 2027', '')
-                , case81 = makeInputs('5 august 2027', '')
-                , case82 = makeInputs('5 AUGUST 2027', '')
-                , case83 = makeInputs('5 aug 2027', '')
+                return actual;
+            };
 
-                //casual words, in every case the keyboard can produce
-                , case84 = makeInputs('today', '')
-                , case85 = makeInputs('TODAY', '')
-                , case86 = makeInputs('Сегодня', '')
-
-                //two dates give a duration, whichever order they come in
-                , case87 = makeInputs('22.11.1996', '29.11.1996')
-                , case88 = makeInputs('29.11.1996', '22.11.1996')
-                , case89 = makeInputs('22.11.1996', '22.11.1996')
-
-                //'next friday', in the forms a russian speaker types it
-                , case90 = makeInputs('next Friday', '')
-                , case91 = makeInputs('следующая пятница', '')
-                , case92 = makeInputs('след пятница', '')
-                , case93 = makeInputs('в следующую пятницу', '')
-                , case94 = makeInputs('СЛЕДУЮЩАЯ ПЯТНИЦА', '')
-
-                //'last' points backwards, so forwardDate has to stay off for it
-                , case95 = makeInputs('last Friday', '')
-                , case96 = makeInputs('предыдущая пятница', '')
-                , case97 = makeInputs('в предыдущую пятницу', '')
-                , case98 = makeInputs('пред пятница', '')
-
-                //a period is a unit everywhere else, so it only travels as a whole phrase
-                , case99 = makeInputs('next week', '')
-                , case100 = makeInputs('следующая неделя', '')
-                , case101 = makeInputs('на следующей неделе', '')
-                , case102 = makeInputs('last month', '')
-                , case103 = makeInputs('прошлый месяц', '')
-                , case104 = makeInputs('в предыдущем месяце', '')
-                , case105 = makeInputs('next year', '')
-                , case106 = makeInputs('следующий год', '')
-                , case107 = makeInputs('в следующем году', '')
-
-                //a relative date is a date like any other, so it takes units too
-                , case108 = makeInputs('next Monday', '1 день')
-                , case109 = makeInputs('следующий понедельник', '1 день')
-
-                //a phrase must not eat the plain duration in the second field
-                , case110 = makeInputs('22.11.1996', '1 неделя')
-
-                //'через' and 'назад' carry their own number
-                , case111 = makeInputs('через неделю', '')
-                , case112 = makeInputs('in 1 week', '')
-                , case113 = makeInputs('через 3 дня', '')
-                , case114 = makeInputs('in 3 days', '')
-                , case115 = makeInputs('5 дней назад', '')
-                , case116 = makeInputs('5 days ago', '')
-                , case117 = makeInputs('22.11.1996, 23.11.1996', '* 2 d')
-                , case118 = makeInputs('22.11.1996, 23.11.1996', 'every week')
-                , case119 = makeInputs('22.11.1996, 23.11.1996', 'every 3 days')
-                , case120 = makeInputs('22.11.1996, 23.11.1996, 24.11.1996', '* 2 days')
-
-                , case121 = makeInputs('22.11.1996, 25.11.1996', '* 1 day')
-                , case122 = makeInputs('22.11.1996', '* 2 days')
-                , case123 = makeInputs('22.11.1996, 23.11.1996', 'каждые 3 дня')
-                , case124 = makeInputs('22.11.1996, 23.11.1996', 'x2 weeks')
-                , case125 = makeInputs('22.11.1996, 23.11.1996', '* -2 days')
-                , case126 = makeInputs('22.11.1996, 23.11.1996', 'every day')
-                , case127 = makeInputs('22.11.1996, 23.11.1996', 'every month')
-                , case128 = makeInputs('22.11.1996, 23.11.1996', '* 1 week 2 days')
-                , case129 = makeInputs('22.11.1996, 23.11.1996', '')
-                , case130 = makeInputs('', '* 2 days')
-                , case131 = makeInputs('December 25, 2026', '')
-                , case132 = makeInputs('22.11.1996', '* nonsense')
-                , case133 = makeInputs('22.11.1996, 23.11.1996', '* week')
-
-
+            const YEAR = '22.11.1997 Saturday November'
+                , MONTH = '22.12.1996 Sunday December'
+                , WEEK = '29.11.1996 Friday November'
+                , DAY = '23.11.1996 Saturday November'
+                , HOUR = '22.11.1996 01:00:00 Friday November'
+                , MINUTE = '22.11.1996 00:01:00 Friday November'
+                , SECOND = '22.11.1996 00:00:01 Friday November'
+                , MONDAY = '25.11.1996 Monday November'
+                , AUGUST = '05.08.2027 Thursday August'
+                , TODAY = '22.11.1996 Friday November'
             ;
 
-            //WHEN
-            let
-                result1 = calcRes(case1)
-                , result2 = calcRes(case2)
-                , result3 = calcRes(case3)
-                , result4 = calcRes(case4)
-                , result5 = calcRes(case5)
-                , result6 = calcRes(case6)
-                , result7 = calcRes(case7)
-                , result8 = calcRes(case8)
-                , result9 = calcRes(case9)
-                , result10 = calcRes(case10)
-                , result11 = calcRes(case11)
-                , result12 = calcRes(case12)
-                , result13 = calcRes(case13)
-                , result14 = calcRes(case14)
-                , result15 = calcRes(case15)
-                , result16 = calcRes(case16)
-                , result17 = calcRes(case17)
-                , result18 = calcRes(case18)
-                , result19 = calcRes(case19)
-                , result20 = calcRes(case20)
-                , result21 = calcRes(case21)
-                , result22 = calcRes(case22)
-                , result23 = calcRes(case23)
-                , result24 = calcRes(case24)
-                , result25 = calcRes(case25)
-                , result26 = calcRes(case26)
-                , result27 = calcRes(case27)
-                , result28 = calcRes(case28)
-                , result29 = calcRes(case29)
-                , result30 = calcRes(case30)
-                , result31 = calcRes(case31)
-                , result32 = calcRes(case32)
-                , result33 = calcRes(case33)
-                , result34 = calcRes(case34)
-                , result35 = calcRes(case35)
-                , result36 = calcRes(case36)
-                , result37 = calcRes(case37)
-                , result38 = calcRes(case38)
-                , result39 = calcRes(case39)
-                , result40 = calcRes(case40)
-                , result41 = calcRes(case41)
-                , result42 = calcRes(case42)
-                , result43 = calcRes(case43)
-                , result44 = calcRes(case44)
-                , result45 = calcRes(case45)
-                , result46 = calcRes(case46)
-                , result47 = calcRes(case47)
-                , result48 = calcRes(case48)
-                , result49 = calcRes(case49)
-                , result50 = calcRes(case50)
-                , result51 = calcRes(case51)
-                , result52 = calcRes(case52)
-                , result53 = calcRes(case53)
-                , result54 = calcRes(case54)
-                , result55 = calcRes(case55, REFERENCE)
-                , result56 = calcRes(case56, REFERENCE)
-                , result57 = calcRes(case57, REFERENCE)
-                , result58 = calcRes(case58, REFERENCE)
-                , result59 = calcRes(case59, REFERENCE)
-                , result60 = calcRes(case60, REFERENCE)
-                , result61 = calcRes(case61, REFERENCE)
-                , result62 = calcRes(case62, REFERENCE)
-                , result63 = calcRes(case63, REFERENCE)
-                , result64 = calcRes(case64, REFERENCE)
-                , result65 = calcRes(case65, REFERENCE)
-                , result66 = calcRes(case66, REFERENCE)
-                , result67 = calcRes(case67, REFERENCE)
-                , result68 = calcRes(case68, REFERENCE)
-                , result69 = calcRes(case69, REFERENCE)
-                , result70 = calcRes(case70, REFERENCE)
-                , result71 = calcRes(case71, REFERENCE)
-                , result72 = calcRes(case72, REFERENCE)
-                , result73 = calcRes(case73, REFERENCE)
-                , result74 = calcRes(case74, REFERENCE)
-                , result75 = calcRes(case75, REFERENCE)
-                , result76 = calcRes(case76, REFERENCE)
-                , result77 = calcRes(case77, REFERENCE)
-                , result78 = calcRes(case78, REFERENCE)
-                , result79 = calcRes(case79, REFERENCE)
-                , result80 = calcRes(case80, REFERENCE)
-                , result81 = calcRes(case81, REFERENCE)
-                , result82 = calcRes(case82, REFERENCE)
-                , result83 = calcRes(case83, REFERENCE)
-                , result84 = calcRes(case84, REFERENCE)
-                , result85 = calcRes(case85, REFERENCE)
-                , result86 = calcRes(case86, REFERENCE)
-                , result87 = calcRes(case87)
-                , result88 = calcRes(case88)
-                , result89 = calcRes(case89)
-                , result90 = calcRes(case90, REFERENCE)
-                , result91 = calcRes(case91, REFERENCE)
-                , result92 = calcRes(case92, REFERENCE)
-                , result93 = calcRes(case93, REFERENCE)
-                , result94 = calcRes(case94, REFERENCE)
-                , result95 = calcRes(case95, REFERENCE)
-                , result96 = calcRes(case96, REFERENCE)
-                , result97 = calcRes(case97, REFERENCE)
-                , result98 = calcRes(case98, REFERENCE)
-                , result99 = calcRes(case99, REFERENCE)
-                , result100 = calcRes(case100, REFERENCE)
-                , result101 = calcRes(case101, REFERENCE)
-                , result102 = calcRes(case102, REFERENCE)
-                , result103 = calcRes(case103, REFERENCE)
-                , result104 = calcRes(case104, REFERENCE)
-                , result105 = calcRes(case105, REFERENCE)
-                , result106 = calcRes(case106, REFERENCE)
-                , result107 = calcRes(case107, REFERENCE)
-                , result108 = calcRes(case108, REFERENCE)
-                , result109 = calcRes(case109, REFERENCE)
-                , result110 = calcRes(case110)
-                , result111 = calcRes(case111, REFERENCE)
-                , result112 = calcRes(case112, REFERENCE)
-                , result113 = calcRes(case113, REFERENCE)
-                , result114 = calcRes(case114, REFERENCE)
-                , result115 = calcRes(case115, REFERENCE)
-                , result116 = calcRes(case116, REFERENCE)
-                , result117 = calcRes(case117)
-                , result118 = calcRes(case118)
-                , result119 = calcRes(case119)
-                , result120 = calcRes(case120)
-                , result121 = calcRes(case121)
-                , result122 = calcRes(case122)
-                , result123 = calcRes(case123)
-                , result124 = calcRes(case124)
-                , result125 = calcRes(case125)
-                , result126 = calcRes(case126)
-                , result127 = calcRes(case127)
-                , result128 = calcRes(case128)
-                , result129 = calcRes(case129)
-                , result130 = calcRes(case130)
-                , result131 = calcRes(case131, REFERENCE)
-                , result132 = calcRes(case132)
-                , result133 = calcRes(case133)
+            check('22.11.1996', '- 40 weeks', '16.02.1996 Friday February');
+            check('22.11.1996', '-40 weeks', '16.02.1996 Friday February');
+            check('22.11.1996', '40 weeks', '29.08.1997 Friday August');
+            check('22.11.1996', '-4 weeks 4 days', '21.10.1996 Monday October');
+            check('02.05.26 22.00', '18h30m', '03.05.2026 16:30:00 Sunday May');
+            check('02.05.26 22.00', '18 hours 45 minutes', '03.05.2026 16:45:00 Sunday May');
+            check('22.11.1996 00.00', '3 sec', '22.11.1996 00:00:03 Friday November');
+            check('22 Nov 1996', '33y', '22.11.2029 Thursday November');
 
-            ;
+            //every russian unit, in every form the keyboard can produce
+            check('22.11.1996', '1 год', YEAR);
+            check('22.11.1996', '1 года', YEAR);
+            check('22.11.1996', '1 годы', YEAR);
+            check('22.11.1996', '1 лет', YEAR);
+            check('22.11.1996', '1 г', YEAR);
+            check('22.11.1996', '1 месяц', MONTH);
+            check('22.11.1996', '1 месяца', MONTH);
+            check('22.11.1996', '1 месяцы', MONTH);
+            check('22.11.1996', '1 месяцев', MONTH);
+            check('22.11.1996', '1 мес', MONTH);
+            check('22.11.1996', '1 неделя', WEEK);
+            check('22.11.1996', '1 недели', WEEK);
+            check('22.11.1996', '1 недель', WEEK);
+            check('22.11.1996', '1 неделю', WEEK);
+            check('22.11.1996', '1 нед', WEEK);
+            check('22.11.1996', '1 н', WEEK);
+            check('22.11.1996', '1 день', DAY);
+            check('22.11.1996', '1 дня', DAY);
+            check('22.11.1996', '1 дни', DAY);
+            check('22.11.1996', '1 дней', DAY);
+            check('22.11.1996', '1 д', DAY);
+            check('22.11.1996', '1 час', HOUR);
+            check('22.11.1996', '1 часа', HOUR);
+            check('22.11.1996', '1 часы', HOUR);
+            check('22.11.1996', '1 часов', HOUR);
+            check('22.11.1996', '1 ч', HOUR);
+            check('22.11.1996', '1 минута', MINUTE);
+            check('22.11.1996', '1 минуты', MINUTE);
+            check('22.11.1996', '1 минуту', MINUTE);
+            check('22.11.1996', '1 минут', MINUTE);
+            check('22.11.1996', '1 мин', MINUTE);
+            check('22.11.1996', '1 м', MINUTE);
+            check('22.11.1996', '1 секунда', SECOND);
+            check('22.11.1996', '1 секунды', SECOND);
+            check('22.11.1996', '1 секунду', SECOND);
+            check('22.11.1996', '1 секунд', SECOND);
+            check('22.11.1996', '1 сек', SECOND);
+            check('22.11.1996', '1 с', SECOND);
 
-            //THEN
-            assert.equal(result1, '16.02.1996 Friday February');
-            assert.equal(result2, '16.02.1996 Friday February');
-            assert.equal(result3, '29.08.1997 Friday August');
-            assert.equal(result4, '21.10.1996 Monday October');
-            assert.equal(result5, '03.05.2026 16:30:00 Sunday May');
-            assert.equal(result6, '03.05.2026 16:45:00 Sunday May');
-            assert.equal(result7, '22.11.1996 00:00:03 Friday November');
-            assert.equal(result8, '22.11.2029 Thursday November');
-            assert.equal(result9, '22.11.1997 Saturday November');
-            assert.equal(result10, '22.11.1997 Saturday November');
-            assert.equal(result11, '22.11.1997 Saturday November');
-            assert.equal(result12, '22.11.1997 Saturday November');
-            assert.equal(result13, '22.11.1997 Saturday November');
-            assert.equal(result14, '22.12.1996 Sunday December');
-            assert.equal(result15, '22.12.1996 Sunday December');
-            assert.equal(result16, '22.12.1996 Sunday December');
-            assert.equal(result17, '22.12.1996 Sunday December');
-            assert.equal(result18, '22.12.1996 Sunday December');
-            assert.equal(result19, '29.11.1996 Friday November');
-            assert.equal(result20, '29.11.1996 Friday November');
-            assert.equal(result21, '29.11.1996 Friday November');
-            assert.equal(result22, '29.11.1996 Friday November');
-            assert.equal(result23, '29.11.1996 Friday November');
-            assert.equal(result24, '23.11.1996 Saturday November');
-            assert.equal(result25, '23.11.1996 Saturday November');
-            assert.equal(result26, '23.11.1996 Saturday November');
-            assert.equal(result27, '23.11.1996 Saturday November');
-            assert.equal(result28, '23.11.1996 Saturday November');
-            assert.equal(result29, '22.11.1996 01:00:00 Friday November');
-            assert.equal(result30, '22.11.1996 01:00:00 Friday November');
-            assert.equal(result31, '22.11.1996 01:00:00 Friday November');
-            assert.equal(result32, '22.11.1996 01:00:00 Friday November');
-            assert.equal(result33, '22.11.1996 01:00:00 Friday November');
-            assert.equal(result34, '22.11.1996 00:01:00 Friday November');
-            assert.equal(result35, '22.11.1996 00:01:00 Friday November');
-            assert.equal(result36, '22.11.1996 00:01:00 Friday November');
-            assert.equal(result37, '22.11.1996 00:01:00 Friday November');
-            assert.equal(result38, '22.11.1996 00:01:00 Friday November');
-            assert.equal(result39, '22.11.1996 00:00:01 Friday November');
-            assert.equal(result40, '22.11.1996 00:00:01 Friday November');
-            assert.equal(result41, '22.11.1996 00:00:01 Friday November');
-            assert.equal(result42, '22.11.1996 00:00:01 Friday November');
-            assert.equal(result43, '22.11.1996 00:00:01 Friday November');
-            assert.equal(result44, '22.02.1997 Saturday February');
-            assert.equal(result45, '15.11.1996 Friday November');
-            assert.equal(result46, '15.11.1996 Friday November');
-            assert.equal(result47, '23.11.1996 Saturday November');
-            assert.equal(result48, '22.11.1996 01:30:00 Friday November');
-            assert.equal(result49, '23.11.1996 02:03:00 Saturday November');
-            assert.equal(result50, '30.11.1996 Saturday November');
-            assert.equal(result51, '23.11.1996 Saturday November');
-            assert.notStrictEqual(result52, null);
-            assert.notStrictEqual(result53, null);
-            assert.notStrictEqual(result54, null);
+            check('22.11.1996', '3 месяца', '22.02.1997 Saturday February');
+            check('22.11.1996', '-1 неделя', '15.11.1996 Friday November');
+            check('22.11.1996', '- 1 неделя', '15.11.1996 Friday November');
+            check('22.11.1996', '1д', DAY);
+            check('22.11.1996', '1ч30м', '22.11.1996 01:30:00 Friday November');
+            check('22.11.1996', '1 день 2 часа 3 минуты', '23.11.1996 02:03:00 Saturday November');
+            check('22.11.1996', '1 week 1 день', '30.11.1996 Saturday November');
+            check('22.11.1996', '1 ДЕНЬ', DAY);
 
-            assert.equal(result55, '25.11.1996 Monday November');
-            assert.equal(result56, '25.11.1996 Monday November');
-            assert.equal(result57, '25.11.1996 Monday November');
-            assert.equal(result58, '25.11.1996 Monday November');
-            assert.equal(result59, '25.11.1996 Monday November');
+            //a word for now is a date, whatever it says
+            assert.ok(0 !== check('сегодня', '+ 4 дня').length);
+            assert.ok(0 !== check('сейчас', '+ 4 дня').length);
+            assert.ok(0 !== check('щас', '+ 4 дня').length);
 
-            assert.equal(result60, '25.11.1996 Monday November');
-            assert.equal(result61, '25.11.1996 Monday November');
-            assert.equal(result62, '25.11.1996 Monday November');
-            assert.equal(result63, '25.11.1996 Monday November');
-            assert.equal(result64, '26.11.1996 Tuesday November');
-            assert.equal(result65, '26.11.1996 Tuesday November');
-            assert.equal(result66, '27.11.1996 Wednesday November');
-            assert.equal(result67, '27.11.1996 Wednesday November');
-            assert.equal(result68, '28.11.1996 Thursday November');
-            assert.equal(result69, '28.11.1996 Thursday November');
+            //english weekday, in every case the keyboard can produce
+            checkWithRef('Monday', '', MONDAY);
+            checkWithRef('monday', '', MONDAY);
+            checkWithRef('MONDAY', '', MONDAY);
+            checkWithRef('Mon', '', MONDAY);
+            checkWithRef('mon', '', MONDAY);
 
-            assert.ok(-1 !== result70.indexOf('Friday November'), result70);
-            assert.equal(result71, result70);
-            assert.equal(result72, result70);
+            //russian weekdays, in the forms a russian speaker types
+            checkWithRef('понедельник', '', MONDAY);
+            checkWithRef('ПОНЕДЕЛЬНИК', '', MONDAY);
+            checkWithRef('в понедельник', '', MONDAY);
+            checkWithRef('пн', '', MONDAY);
+            checkWithRef('вторник', '', '26.11.1996 Tuesday November');
+            checkWithRef('вт', '', '26.11.1996 Tuesday November');
+            checkWithRef('среду', '', '27.11.1996 Wednesday November');
+            checkWithRef('ср', '', '27.11.1996 Wednesday November');
+            checkWithRef('четверг', '', '28.11.1996 Thursday November');
+            checkWithRef('чт', '', '28.11.1996 Thursday November');
 
-            assert.equal(result73, '23.11.1996 Saturday November');
-            assert.equal(result74, '23.11.1996 Saturday November');
-            assert.equal(result75, '24.11.1996 Sunday November');
-            assert.equal(result76, '24.11.1996 Sunday November');
+            //friday is the reference day itself, so chrono picks the day and the spellings only have to agree
+            let friday = checkWithRef('Friday', '');
 
-            assert.equal(result77, '26.11.1996 Tuesday November');
-            assert.equal(result78, '09.12.1996 Monday December');
+            assert.ok(-1 !== friday.indexOf('Friday November'), friday);
+            checkWithRef('пятницу', '', friday);
+            checkWithRef('пт', '', friday);
 
-            assert.equal(result79, '27.11.1996 Wednesday November');
+            checkWithRef('субботу', '', DAY);
+            checkWithRef('сб', '', DAY);
+            checkWithRef('воскресенье', '', '24.11.1996 Sunday November');
+            checkWithRef('вс', '', '24.11.1996 Sunday November');
 
-            assert.equal(result80, '05.08.2027 Thursday August');
-            assert.equal(result81, '05.08.2027 Thursday August');
-            assert.equal(result82, '05.08.2027 Thursday August');
-            assert.equal(result83, '05.08.2027 Thursday August');
+            //a weekday is a date like any other, so it takes units too
+            checkWithRef('понедельник', '1 день', '26.11.1996 Tuesday November');
+            checkWithRef('пн', '2 недели', '09.12.1996 Monday December');
 
-            assert.equal(result84, '22.11.1996 Friday November');
-            assert.equal(result85, '22.11.1996 Friday November');
-            assert.equal(result86, '22.11.1996 Friday November');
+            //short weekday forms must not fire inside a longer word
+            checkWithRef('22.11.1996', '5 дней', '27.11.1996 Wednesday November');
 
-            assert.equal(result87, '7 days');
-            assert.equal(result88, '7 days');
-            assert.equal(result89, '0 days');
+            //months, in every case the keyboard can produce
+            checkWithRef('5 August 2027', '', AUGUST);
+            checkWithRef('5 august 2027', '', AUGUST);
+            checkWithRef('5 AUGUST 2027', '', AUGUST);
+            checkWithRef('5 aug 2027', '', AUGUST);
 
-            //chrono owns which friday 'next friday' is, the russian forms only have to land on the same one
-            assert.ok(-1 !== result90.indexOf('Friday November'), result90);
-            assert.equal(result91, result90);
-            assert.equal(result92, result90);
-            assert.equal(result93, result90);
-            assert.equal(result94, result90);
+            //casual words, in every case the keyboard can produce
+            checkWithRef('today', '', TODAY);
+            checkWithRef('TODAY', '', TODAY);
+            checkWithRef('Сегодня', '', TODAY);
 
-            assert.ok(-1 !== result95.indexOf('Friday November'), result95);
-            assert.equal(result96, result95);
-            assert.equal(result97, result95);
-            assert.equal(result98, result95);
+            //two dates give a duration, whichever order they come in
+            check('22.11.1996', '29.11.1996', '7 days');
+            check('29.11.1996', '22.11.1996', '7 days');
+            check('22.11.1996', '22.11.1996', '0 days');
+
+            //chrono owns which friday 'next friday' is, the russian forms only have to land checkWithRef the same one
+            let nextFriday = checkWithRef('next Friday', '');
+
+            assert.ok(-1 !== nextFriday.indexOf('Friday November'), nextFriday);
+            checkWithRef('следующая пятница', '', nextFriday);
+            checkWithRef('след пятница', '', nextFriday);
+            checkWithRef('в следующую пятницу', '', nextFriday);
+            checkWithRef('СЛЕДУЮЩАЯ ПЯТНИЦА', '', nextFriday);
+
+            //'last' points backwards, so forwardDate has to stay off for it
+            let lastFriday = checkWithRef('last Friday', '');
+
+            assert.ok(-1 !== lastFriday.indexOf('Friday November'), lastFriday);
+            checkWithRef('предыдущая пятница', '', lastFriday);
+            checkWithRef('в предыдущую пятницу', '', lastFriday);
+            checkWithRef('пред пятница', '', lastFriday);
 
             //a date behind the reference must stay behind it
-            assert.notEqual(result95, result90);
+            assert.notEqual(lastFriday, nextFriday);
 
-            assert.ok(0 !== result99.length, result99);
-            assert.equal(result100, result99);
-            assert.equal(result101, result99);
+            //a period is a unit everywhere else, so it only travels as a whole phrase
+            let nextWeek = checkWithRef('next week', '');
 
-            assert.ok(0 !== result102.length, result102);
-            assert.equal(result103, result102);
-            assert.equal(result104, result102);
+            assert.ok(0 !== nextWeek.length, nextWeek);
+            checkWithRef('следующая неделя', '', nextWeek);
+            checkWithRef('на следующей неделе', '', nextWeek);
 
-            assert.ok(0 !== result105.length, result105);
-            assert.equal(result106, result105);
-            assert.equal(result107, result105);
+            let lastMonth = checkWithRef('last month', '');
 
-            assert.equal(result109, result108);
+            assert.ok(0 !== lastMonth.length, lastMonth);
+            checkWithRef('прошлый месяц', '', lastMonth);
+            checkWithRef('в предыдущем месяце', '', lastMonth);
 
-            assert.equal(result110, '29.11.1996 Friday November');
+            let nextYear = checkWithRef('next year', '');
 
-            assert.equal(result111, result112);
-            assert.equal(result113, result114);
-            assert.equal(result115, result116);
+            assert.ok(0 !== nextYear.length, nextYear);
+            checkWithRef('следующий год', '', nextYear);
+            checkWithRef('в следующем году', '', nextYear);
 
-            assert.notEqual(result115, result113);
+            //a relative date is a date like any other, so it takes units too
+            checkWithRef('следующий понедельник', '1 день', checkWithRef('next Monday', '1 день'));
 
-            assert.equal(result117, '24.11.1996, 25.11.1996');
-            assert.equal(result118, '29.11.1996, 30.11.1996');
-            assert.equal(result119, '25.11.1996, 26.11.1996');
-            assert.equal(result120, '24.11.1996, 25.11.1996, 26.11.1996');
-            assert.equal(result121, '23.11.1996, 26.11.1996');
-            assert.equal(result122, '24.11.1996');
-            assert.equal(result123, result119);
-            assert.equal(result124, '06.12.1996, 07.12.1996');
-            assert.equal(result125, result117);
-            assert.equal(result126, '23.11.1996, 24.11.1996');
-            assert.equal(result127, '22.12.1996, 23.12.1996');
-            assert.equal(result128, '01.12.1996, 02.12.1996');
-            assert.equal(result129, '22.11.1996, 23.11.1996');
-            assert.equal(result130, '');
-            assert.equal(result132, '');
-            assert.equal(result133, result118);
-        });
+            //a phrase must not eat the plain duration in the second field
+            check('22.11.1996', '1 неделя', WEEK);
+
+            //'через' and 'назад' carry their own number
+            checkWithRef('in 1 week', '', checkWithRef('через неделю', ''));
+
+            let inThreeDays = checkWithRef('через 3 дня', '');
+
+            checkWithRef('in 3 days', '', inThreeDays);
+
+            let daysAgo = checkWithRef('5 дней назад', '');
+
+            checkWithRef('5 days ago', '', daysAgo);
+            assert.notEqual(daysAgo, inThreeDays);
+
+            //a repeat moves every day in a comma list checkWithRef by the step, and nothing else
+            let twoDays = check('22.11.1996, 23.11.1996', '* 2 d', '24.11.1996, 25.11.1996')
+                , everyWeek = check('22.11.1996, 23.11.1996', 'every week', '29.11.1996, 30.11.1996')
+                , everyThree = check('22.11.1996, 23.11.1996', 'every 3 days', '25.11.1996, 26.11.1996')
+            ;
+
+            check('22.11.1996, 23.11.1996, 24.11.1996', '* 2 days', '24.11.1996, 25.11.1996, 26.11.1996');
+            check('22.11.1996, 25.11.1996', '* 1 day', '23.11.1996, 26.11.1996');
+            check('22.11.1996', '* 2 days', '24.11.1996');
+            check('22.11.1996, 23.11.1996', 'каждые 3 дня', everyThree);
+            check('22.11.1996, 23.11.1996', 'x2 weeks', '06.12.1996, 07.12.1996');
+
+            //a repeat has no direction and cannot stand still
+            check('22.11.1996, 23.11.1996', '* -2 days', twoDays);
+
+            check('22.11.1996, 23.11.1996', 'every day', '23.11.1996, 24.11.1996');
+            check('22.11.1996, 23.11.1996', 'every month', '22.12.1996, 23.12.1996');
+            check('22.11.1996, 23.11.1996', '* 1 week 2 days', '01.12.1996, 02.12.1996');
+            check('22.11.1996, 23.11.1996', '', '22.11.1996, 23.11.1996');
+            check('', '* 2 days', '');
+            checkWithRef('December 25, 2026', '');
+            check('22.11.1996', '* nonsense', '');
+            check('22.11.1996, 23.11.1996', '* week', everyWeek);
+            check('22.11.1996, 23.11.1996', '* 2 d', twoDays);
+
+            //'today' moves, so the answer is built the way the app builds it
+            check('today, tomorrow', '* 2 d',
+                moment().add(2, 'days').format('DD.MM.YYYY') + ', ' + moment().add(3, 'days').format('DD.MM.YYYY'));
+
+            //a run of days written the short way, and the shortest run that is still written out
+            let range = check('22.11.1996 - 25.11.1996', '', '22.11.1996 - 25.11.1996');
+
+            check('22.11.1996 - 24.11.1996', '', '22.11.1996, 23.11.1996, 24.11.1996');
+
+            //a range has two ends and no direction, and takes any dash the keyboard offers
+            check('25.11.1996 - 22.11.1996', '', range);
+            check('22.11.1996 — 25.11.1996', '', range);
+
+            //an end of a range is a date like any other
+            checkWithRef('today - 25.11.1996', '', range);
+            checkWithRef('сегодня - 25.11.1996', '', range);
+
+            //a typed list that turns out to be a run comes back as one, a broken one does not
+            check('22.11.1996, 23.11.1996, 24.11.1996, 25.11.1996', '', range);
+            check('22.11.1996, 24.11.1996, 25.11.1996, 26.11.1996', '', '22.11.1996, 24.11.1996, 25.11.1996, 26.11.1996');
+
+            //a dash inside a date is part of the date
+            check('1996-11-22', '', TODAY);
+            assert.ok(-1 === check('25-12-2026', '').indexOf(' - '), 'a dashed date is not a range');
+
+            //a range is a block: it comes round after the block itself, and then the step
+            let block = check('22.11.1996 - 25.11.1996', '* 1 day', '27.11.1996 - 30.11.1996');
+
+            check('22.11.1996 - 25.11.1996', '* 4 d', '30.11.1996 - 03.12.1996');
+
+            //the spaces around the dash are how it reads best, not how it has to be typed
+            check('22.11.1996-25.11.1996', '* 1 day', block);
+            check('22.11.1996-25.11.1996', '', range);
+        })
 
         QUnit.test('format duration test', assert => {
             //GIVEN

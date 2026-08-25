@@ -751,12 +751,17 @@
             <dd><code>10 days</code>, <code>33y</code>, <code>1ч30м</code>, <code>-4 weeks 4 days</code>,
                 <code>3 сек</code></dd>
 
+            <dt>Ranges</dt>
+            <dd><code>22.11.1996 - 25.11.1996</code>, <code>today - 29.08.2026</code> — every day in between; a picked
+                run of four days or more is written back this way</dd>
+
             <dt>Between</dt>
             <dd>a second date instead of an amount gives the gap between the two</dd>
 
             <dt>Repeats</dt>
             <dd><code>* 2 days</code>, <code>every week</code>, <code>каждые 3 дня</code> — every day in the first field
-                moves on by that step</dd>
+                moves on by that step. A range moves as a block instead: <code>22.11.1996 - 25.11.1996</code> with
+                <code>* 4 d</code> is four days on, four days off</dd>
 
             <dt>Calendar</dt>
             <dd>click fills the first field, ctrl-click the second, shift-click or a long press picks several days</dd>
