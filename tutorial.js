@@ -51,9 +51,28 @@ const sleep = function (ms) {
     });
 };
 
+const showAbout = function (on) {
+
+    let box = document.getElementById('about');
+
+    if (null == box) {
+        return;
+    }
+
+    let links = document.getElementById('about-links');
+
+    if (on && null != links && 0 === links.childElementCount && null != window.FOOTER_LINKS) {
+        links.innerHTML = window.FOOTER_LINKS;
+    }
+
+    document.body.classList.toggle('about-on', on);
+};
+
 const tutorialCancel = function () {
 
     tutorialVersion = tutorialVersion + 1;
+
+    showAbout(false);
 
     tutorialTimers.forEach(id => window.clearTimeout(id));
     tutorialTimers = [];
@@ -384,7 +403,7 @@ const mobileTipBox = function (tip, w, h, gap, vw, vh) {
 
     //on mobile the calendar button moves down beside the answer, so its tip
     //belongs down there with it
-    let down = ['result', 'timezone', 'calendar'].some(id => tip.name.indexOf(id) >= 0),
+    let down = tip.name.split('+').some(id => ['result', 'timezone', 'calendar'].indexOf(id) >= 0),
         anchor = document.getElementsByClassName(down ? 'result' : 'input-row')[0];
 
     if (null == anchor) {
@@ -654,13 +673,15 @@ const clearFields = async function (cancelled) {
 
 
 const clearResult = function () {
-    LAST_DURATION = false;
-    LAST_DATE = null;
-    LAST_TITLE = '';
-    LAST_ZONE = '';
+
+    resetState();
+
     document.getElementById('result').innerHTML = '';
     document.getElementById('timezone').innerHTML = '';
     document.getElementById('calendar-holder').classList.add('hidden');
+
+    //the grid still carries the marks of the answer that just went
+    renderCalendar();
 };
 
 //the tip retypes itself the way the fields do: back to whatever the two texts
@@ -893,7 +914,7 @@ const ensureResult = async function (cancelled) {
  * side keep the same bubble too, which then retypes in place instead of a new
  * one being drawn.
  */
-const TUTORIAL_ORDER = ['fields', 'enter', 'formats', 'answer', 'units', 'between', 'words', 'share', 'calendar'];
+const TUTORIAL_ORDER = ['fields', 'enter', 'formats', 'answer', 'units', 'between', 'words', 'pattern', 'share', 'calendar', 'about'];
 
 const FIELDS = ['input-1', 'input-2'];
 
@@ -1067,6 +1088,48 @@ const TUTORIAL_STEPS = {
         }
     },
 
+    async pattern(cancelled) {
+        await showTips([
+            {target: ['input-1', 'calendar-view'], side: 'above', text: 'Several days at once: list them, or pick them on the calendar'}
+        ], cancelled);
+        if (cancelled()) return;
+
+        await type(2, '', cancelled);
+        if (cancelled()) return;
+
+        await type(1, '22.11.1996, 23.11.1996', cancelled);
+        if (cancelled()) return;
+
+        await sleep(TUTORIAL_BEAT);
+        if (cancelled()) return;
+
+        submit();
+
+        await sleep(TUTORIAL_PAUSE * 1.4);
+        if (cancelled()) return;
+
+        await showTips([
+            {target: ['input-2', 'calendar-view'], side: 'above', text: 'A repeat in the second field moves every one of them on'}
+        ], cancelled);
+        if (cancelled()) return;
+
+        let repeats = ['* 1 week', 'every 3 days', '* 1 month'];
+
+        for (let i = 0; i < repeats.length; i++) {
+
+            await type(2, repeats[i], cancelled);
+            if (cancelled()) return;
+
+            await sleep(TUTORIAL_BEAT);
+            if (cancelled()) return;
+
+            submit();
+
+            await sleep(TUTORIAL_PAUSE * 1.6);
+            if (cancelled()) return;
+        }
+    },
+
     async share(cancelled) {
         await ensureResult(cancelled);
         if (cancelled()) return;
@@ -1117,6 +1180,13 @@ const TUTORIAL_STEPS = {
         if (cancelled()) return;
 
         await pressButton('calendar', cancelled);
+    },
+
+    async about(cancelled) {
+        await showTips([], cancelled);
+        if (cancelled()) return;
+
+        showAbout(true);
     }
 
 };
@@ -1213,6 +1283,7 @@ const stopTutorial = function () {
 
     tutorialCancel();
     hideTips();
+    showAbout(false);
 
     tutorialActive = false;
 
@@ -1230,8 +1301,10 @@ const stopTutorial = function () {
     inputs[0].readOnly = false;
     inputs[1].readOnly = false;
 
+    inputs.forEach(fitInput);
+
     fadeResult(false);
-    clearResult();
+    renderEmpty();
     updateCounter();
 
     document.body.classList.remove('tutorial-on');

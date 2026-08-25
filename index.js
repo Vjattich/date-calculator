@@ -147,24 +147,18 @@ const MOBILE_QUERY = window.matchMedia('(max-width: 768px)');
 const INPUTS = document.getElementsByClassName('input');
 
 let LAST_DURATION = false;
-let LAST_DATE = null;
 let LAST_TITLE = '';
 let LAST_ZONE = '';
 //every day the answer names, so a pattern can mark more than one
 let LAST_DATES = [];
 //both ends of a date-to-date result, so the grid can paint the span
 let LAST_RANGE = null;
+//the repeat behind the answer: {step, seeds}, kept because the grid draws it after the calc returns
+let LAST_PATTERN = null;
 //month the grid is looking at, moves with the arrows
 let CAL_MONTH = null;
 //the grid stays put while the user is picking days on it
 let CAL_HOLD = false;
-
-//the repeat step, same shape as getOperations returns
-let PATTERN_STEP = null;
-//what the step actually repeats from: the picked days, or the typed date alone
-let PATTERN_SEEDS = [];
-//the real repeat: the picked block padded out to whole units, plus the step
-let PATTERN_CYCLE = null;
 
 let pressTimerId = null;
 let pressAt = null;
@@ -294,22 +288,27 @@ const formatMoment = function (momentDate) {
     return momentDate.format(hasClockUnit(momentDate) ? CLOCK_PATTERN : DATE_PATTERN);
 };
 
+//the icons and the grid anchor work off a single day, and the first day the answer names is it
+const lastDate = function () {
+    return 0 === LAST_DATES.length ? null : LAST_DATES[0];
+};
+
+//the offset belongs to the answer, so every keep sets it from the day it is keeping
 const keepDate = function (momentDate, title) {
 
-    LAST_DATE = momentDate.clone();
-    LAST_DATES = [LAST_DATE.clone()];
+    LAST_DATES = [momentDate.clone()];
     LAST_TITLE = title;
+    LAST_ZONE = zoneLabel(momentDate);
 
     return formatMoment(momentDate);
 };
 
 //the same shape the first field uses, so an answer can be pasted straight back in
-const keepDates = function (moments, title) {
+const keepDates = function (moments, title, note) {
 
     LAST_DATES = moments.map(one => one.clone());
-    //the icons and the grid anchor still work off a single day, and the first one is it
-    LAST_DATE = LAST_DATES[0].clone();
     LAST_TITLE = title;
+    LAST_ZONE = zoneLabel(LAST_DATES[0]) + (null == note ? '' : ' · ' + note);
 
     return LAST_DATES.map(formatPick).join(SEED_SEPARATOR + ' ');
 };
@@ -340,45 +339,22 @@ const patternStepOf = function (value) {
     return operations.some(op => 0 < op.num) ? operations : null;
 };
 
-const stepBy = function (day, direction) {
-    return PATTERN_CYCLE.reduce((acc, op) => acc.add(direction * op.num, op.unit), day.clone());
+const stepBy = function (step, day) {
+    return step.reduce((acc, op) => acc.add(op.num, op.unit), day.clone());
 };
 
-const stepLabel = function () {
-    return PATTERN_CYCLE.map(op => op.num + ' ' + op.unit).join(' ');
-};
-
-const blockUnits = function (first, last, unit) {
-
-    //diff lands on or just under the answer, so the walk that follows is a step or two, not a year
-    let units = Math.max(1, last.diff(first, unit));
-
-    while (units < PATTERN_LIMIT && !first.clone().add(units, unit).isAfter(last, 'day')) {
-        units++;
-    }
-
-    return units;
-};
-
-//"two days on, two days off": the block is padded to whole units, then the step is the gap after it
-const cycleOf = function (seeds) {
-
-    let sorted = seeds.slice().sort((a, b) => a - b),
-        //getOperations puts the smallest unit first, and that is the one the block is measured in
-        smallest = PATTERN_STEP[0],
-        units = blockUnits(sorted[0], sorted[sorted.length - 1], smallest.unit);
-
-    return PATTERN_STEP.map((op, i) => 0 === i ? {num: op.num + units, unit: op.unit} : op);
+const stepLabel = function (step) {
+    return step.map(op => op.num + ' ' + op.unit).join(' ');
 };
 
 //days and weeks are always the same length, months and years are not
-const stepDays = function () {
+const stepDays = function (step) {
 
     let days = 0;
 
-    for (let i = 0; i < PATTERN_CYCLE.length; i++) {
+    for (let i = 0; i < step.length; i++) {
 
-        let op = PATTERN_CYCLE[i];
+        let op = step[i];
 
         if ('days' === op.unit || 'day' === op.unit) {
             days += op.num;
@@ -393,9 +369,9 @@ const stepDays = function () {
 };
 
 //a fixed step lands next to the edge in one jump, so a seed years away costs nothing to draw
-const alignSeed = function (seed, edge) {
+const alignSeed = function (step, seed, edge) {
 
-    let days = stepDays();
+    let days = stepDays(step);
 
     if (0 === days) {
         return seed.clone();
@@ -458,26 +434,24 @@ const pickedKeys = function () {
     return PICKED_CACHE.keys;
 };
 
-const findNextDates = function () {
-    return PATTERN_SEEDS.map(seed => stepBy(seed, 1));
-};
-
 const patternMarks = function (month) {
 
     let marks = new Set();
 
-    if (null == PATTERN_CYCLE || 0 === PATTERN_SEEDS.length) {
+    if (null == LAST_PATTERN) {
         return marks;
     }
 
-    let from = firstCell(month),
+    let step = LAST_PATTERN.step,
+        seeds = LAST_PATTERN.seeds,
+        from = firstCell(month),
         //the window resolved to milliseconds once, so the walk below is a number compare per step
         fromMs = from.valueOf(),
         toMs = from.clone().add(CAL_CELLS, 'days').valueOf() - 1;
 
-    for (let i = 0; i < PATTERN_SEEDS.length; i++) {
+    for (let i = 0; i < seeds.length; i++) {
 
-        let day = alignSeed(PATTERN_SEEDS[i], from);
+        let day = alignSeed(step, seeds[i], from);
 
         for (let n = 0; n < PATTERN_LIMIT; n++) {
 
@@ -491,31 +465,22 @@ const patternMarks = function (month) {
                 marks.add(day.format(CAL_KEY));
             }
 
-            day = stepBy(day, 1);
+            day = stepBy(step, day);
         }
     }
 
     return marks;
 };
 
-const dropPattern = function () {
-
-    PATTERN_STEP = null;
-    PATTERN_CYCLE = null;
-    PATTERN_SEEDS = [];
-};
-
 //the answer and the grid are cleared from two places, and they clear the same things
 const resetState = function () {
 
     LAST_DURATION = false;
-    LAST_DATE = null;
     LAST_DATES = [];
     LAST_TITLE = '';
     LAST_ZONE = '';
     LAST_RANGE = null;
-
-    dropPattern();
+    LAST_PATTERN = null;
 };
 
 //the first field is a list of days either way, one long or several, and both paths want it resolved
@@ -533,16 +498,14 @@ const resolveDates = function (value, referenceDate) {
     return null == one ? null : [fixDate(one, one.start.moment())];
 };
 
-const calcPattern = function (seeds) {
+//the step is the whole repeat: every picked day moves by it, and nothing else does
+const calcPattern = function (step, seeds) {
 
-    PATTERN_SEEDS = seeds;
-    PATTERN_CYCLE = cycleOf(seeds);
+    let label = 'every ' + stepLabel(step);
 
-    let nextDates = findNextDates();
+    LAST_PATTERN = {step: step, seeds: seeds};
 
-    LAST_ZONE = zoneLabel(nextDates[0]) + ' · every ' + stepLabel();
-
-    return keepDates(nextDates, 'every ' + stepLabel());
+    return keepDates(seeds.map(seed => stepBy(step, seed)), label, label);
 };
 
 const calcRes = function (inputs, referenceDate) {
@@ -565,21 +528,17 @@ const calcRes = function (inputs, referenceDate) {
         return '';
     }
 
-    PATTERN_STEP = patternStepOf(value_2);
+    let step = patternStepOf(value_2);
 
-    if (null != PATTERN_STEP) {
-        return calcPattern(dates);
+    if (null != step) {
+        return calcPattern(step, dates);
     }
 
     if (1 < dates.length) {
-        LAST_ZONE = zoneLabel(dates[0]);
         return keepDates(dates, value_1);
     }
 
     let fixedDate_1 = dates[0];
-
-    //the offset belongs to the result date, not to the user, so it cannot be hoisted out of here
-    LAST_ZONE = zoneLabel(fixedDate_1);
 
     if (0 === value_2.length) {
         return keepDate(fixedDate_1, value_1);
@@ -592,6 +551,8 @@ const calcRes = function (inputs, referenceDate) {
         let fixedDate_2 = fixDate(secondDate, secondDate.start.moment()),
             duration = moment.duration(makeDiff(fixedDate_1, fixedDate_2));
         LAST_DURATION = duration;
+        //a span has no single day to keep, so the offset is read off the date the user started from
+        LAST_ZONE = zoneLabel(fixedDate_1);
         LAST_RANGE = fixedDate_1.isAfter(fixedDate_2)
             ? {from: fixedDate_2.clone(), to: fixedDate_1.clone()}
             : {from: fixedDate_1.clone(), to: fixedDate_2.clone()};
@@ -611,8 +572,10 @@ const calcRes = function (inputs, referenceDate) {
 //the date the grid opens on: the result itself, or the start of a span
 const calAnchor = function () {
 
-    if (null != LAST_DATE) {
-        return LAST_DATE.clone();
+    let day = lastDate();
+
+    if (null != day) {
+        return day.clone();
     }
 
     if (null != LAST_RANGE) {
@@ -719,8 +682,10 @@ const firstCell = function (month) {
 //one tabbable cell, so the grid costs a single tab stop instead of 42
 const tabCell = function (month, today) {
 
-    if (null != LAST_DATE && LAST_DATE.isSame(month, 'month')) {
-        return LAST_DATE.format(CAL_KEY);
+    let day = lastDate();
+
+    if (null != day && day.isSame(month, 'month')) {
+        return day.format(CAL_KEY);
     }
 
     if (null != LAST_RANGE && LAST_RANGE.from.isSame(month, 'month')) {
@@ -798,16 +763,17 @@ const syncCalendar = function () {
 const toggleActions = function () {
 
     let actions = document.getElementsByClassName('actions')[0],
-        calendar = document.getElementById('calendar-holder');
+        calendar = document.getElementById('calendar-holder'),
+        empty = null == lastDate();
 
     //one fade for the column, so both icons always enter on the same frame
     if (null != actions) {
-        actions.classList.toggle('hidden', null == LAST_DATE && null == LAST_RANGE);
+        actions.classList.toggle('hidden', empty && null == LAST_RANGE);
     }
 
     //sharing works for any answer, google calendar needs a single date
     if (null != calendar) {
-        calendar.classList.toggle('hidden', null == LAST_DATE);
+        calendar.classList.toggle('hidden', empty);
     }
 };
 
@@ -964,7 +930,7 @@ const onCalendarClick = function (e) {
 const renderResult = function (text) {
 
     //nothing parsed: keep the last answer on screen, the tooltip already said why
-    if (!text && null == LAST_DATE && null == LAST_RANGE) {
+    if (!text && null == lastDate() && null == LAST_RANGE) {
         return;
     }
 
@@ -986,6 +952,8 @@ const renderResult = function (text) {
 const renderEmpty = function () {
 
     resetState();
+
+    CAL_MONTH = null;
 
     let result = document.getElementById('result'),
         zone = document.getElementById('timezone');
@@ -1308,22 +1276,25 @@ const fixDate = function (chronoObj, momentDate) {
 //google takes a single frequency, so a mixed step like "1 month 2 days" stays a one-off event
 const patternRule = function () {
 
-    if (null == PATTERN_CYCLE || 1 !== PATTERN_CYCLE.length) {
+    if (null == LAST_PATTERN || 1 !== LAST_PATTERN.step.length) {
         return null;
     }
 
-    let freq = RRULE_FREQ[PATTERN_CYCLE[0].unit];
+    let op = LAST_PATTERN.step[0],
+        freq = RRULE_FREQ[op.unit];
 
-    return null == freq ? null : 'RRULE:FREQ=' + freq + ';INTERVAL=' + PATTERN_CYCLE[0].num;
+    return null == freq ? null : 'RRULE:FREQ=' + freq + ';INTERVAL=' + op.num;
 };
 
 const buildCalendarUrl = function () {
 
-    if (null == LAST_DATE) {
+    let first = lastDate();
+
+    if (null == first) {
         return null;
     }
 
-    let start = LAST_DATE.clone(),
+    let start = first.clone(),
         params = new URLSearchParams();
 
     params.set('action', 'TEMPLATE');

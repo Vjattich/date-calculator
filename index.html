@@ -357,6 +357,88 @@
             font-size: 0.8em;
         }
 
+        #about {
+            position: fixed;
+            inset: 0;
+            z-index: 5;
+            display: none;
+            overflow-y: auto;
+            background: var(--bg);
+            padding: 2.5em 1em 7em;
+            font-size: 0.8rem;
+            text-align: left;
+        }
+
+        body.about-on #about {
+            display: block;
+        }
+
+        .about-inner {
+            width: fit-content;
+            max-width: 34em;
+            margin: 0 auto;
+        }
+
+        .about-inner h2 {
+            margin: 0 0 0.3em;
+            font-size: 1.6em;
+        }
+
+        .about-lead {
+            margin: 0 0 1.4em;
+            color: var(--muted);
+            line-height: 1.5;
+        }
+
+        .about-list {
+            display: grid;
+            grid-template-columns: 6em 1fr;
+            gap: 0.5em 1em;
+            margin: 0;
+        }
+
+        .about-list dt {
+            font-weight: bold;
+        }
+
+        .about-list dd {
+            margin: 0;
+            line-height: 1.5;
+        }
+
+        .about-list code {
+            font-family: ui-monospace, monospace;
+            background: var(--cell);
+            border-radius: 4px;
+            padding: 0 0.3em;
+        }
+
+        .about-links {
+            display: flex;
+            justify-content: center;
+            gap: 0.5em;
+            margin: 2em 0 0.8em;
+        }
+
+        .about-foot {
+            margin: 0;
+            text-align: center;
+            font-size: 0.85em;
+            color: var(--muted);
+        }
+
+        @media screen and (max-width: 768px) {
+
+            .about-list {
+                grid-template-columns: 1fr;
+                gap: 0.15em;
+            }
+
+            .about-list dd {
+                margin-bottom: 0.7em;
+            }
+        }
+
         @media (prefers-reduced-motion: reduce) {
 
             .tutorial-tip, .tutorial-arrow, .tutorial-key {
@@ -629,7 +711,6 @@
         </noscript>
         <div id="tooltips">
             <span id="unit-tooltip" class="tooltip-right-up opacity-0">You need to set and unit</span>
-            <span id="pattern-tooltip" class="tooltip-right-down opacity-0">Pick days first: shift-click, or hold on mobile</span>
         </div>
         <div class="input-row">
             <input class="input 1" type="text" autocomplete="off" autocorrect="off" spellcheck="false"
@@ -657,6 +738,38 @@
         </div>
     </main>
 </div>
+<section id="about" aria-label="About this date calculator">
+    <div class="about-inner">
+        <h2>Date Calculator</h2>
+        <p class="about-lead">Any math with dates with and keep it simple as possible</p>
+        <dl class="about-list">
+            <dt>Dates</dt>
+            <dd><code>25.12.2026</code>, <code>2026-12-25</code>, <code>12/25/2026</code>, <code>22 Nov 1996</code>,
+                <code>today</code>, <code>next Friday</code>, <code>следующую пятницу</code>, <code>щас</code></dd>
+
+            <dt>Amounts</dt>
+            <dd><code>10 days</code>, <code>33y</code>, <code>1ч30м</code>, <code>-4 weeks 4 days</code>,
+                <code>3 сек</code></dd>
+
+            <dt>Between</dt>
+            <dd>a second date instead of an amount gives the gap between the two</dd>
+
+            <dt>Repeats</dt>
+            <dd><code>* 2 days</code>, <code>every week</code>, <code>каждые 3 дня</code> — every day in the first field
+                moves on by that step</dd>
+
+            <dt>Calendar</dt>
+            <dd>click fills the first field, ctrl-click the second, shift-click or a long press picks several days</dd>
+
+            <dt>Keys</dt>
+            <dd><code>Enter</code> calculates, <code>Tab</code> swaps fields, <code>Esc</code> steps out of them; on
+                desktop just start typing anywhere</dd>
+
+            <dt>Answers</dt>
+            <dd>share one as a link, or send a single date to Google Calendar — a repeat travels with it</dd>
+        </dl>
+    </div>
+</section>
 <script src="footer.js" data-repo="https://github.com/Vjattich/date-calculator" data-guide defer></script>
 <script src="index.js" defer></script>
 <script src="tutorial.js" defer></script>

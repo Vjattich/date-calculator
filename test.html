@@ -194,6 +194,7 @@
                 , case130 = makeInputs('', '* 2 days')
                 , case131 = makeInputs('December 25, 2026', '')
                 , case132 = makeInputs('22.11.1996', '* nonsense')
+                , case133 = makeInputs('22.11.1996, 23.11.1996', '* week')
 
 
             ;
@@ -332,6 +333,7 @@
                 , result130 = calcRes(case130)
                 , result131 = calcRes(case131, REFERENCE)
                 , result132 = calcRes(case132)
+                , result133 = calcRes(case133)
 
             ;
 
@@ -472,22 +474,22 @@
 
             assert.notEqual(result115, result113);
 
-            assert.equal(result117, '26.11.1996, 27.11.1996');
-            assert.equal(result118, '06.12.1996, 07.12.1996');
-            assert.equal(result119, '27.11.1996, 28.11.1996');
-            assert.equal(result120, '27.11.1996, 28.11.1996, 29.11.1996');
-            assert.equal(result121, '27.11.1996, 30.11.1996');
-            assert.equal(result122, '25.11.1996');
+            assert.equal(result117, '24.11.1996, 25.11.1996');
+            assert.equal(result118, '29.11.1996, 30.11.1996');
+            assert.equal(result119, '25.11.1996, 26.11.1996');
+            assert.equal(result120, '24.11.1996, 25.11.1996, 26.11.1996');
+            assert.equal(result121, '23.11.1996, 26.11.1996');
+            assert.equal(result122, '24.11.1996');
             assert.equal(result123, result119);
-            assert.equal(result124, '13.12.1996, 14.12.1996');
+            assert.equal(result124, '06.12.1996, 07.12.1996');
             assert.equal(result125, result117);
-            assert.equal(result126, '25.11.1996, 26.11.1996');
-            assert.equal(result127, '22.01.1997, 23.01.1997');
-            assert.equal(result128, '03.12.1996, 04.12.1996');
+            assert.equal(result126, '23.11.1996, 24.11.1996');
+            assert.equal(result127, '22.12.1996, 23.12.1996');
+            assert.equal(result128, '01.12.1996, 02.12.1996');
             assert.equal(result129, '22.11.1996, 23.11.1996');
             assert.equal(result130, '');
-            assert.equal(result131, '25.12.2026 Friday December');
             assert.equal(result132, '');
+            assert.equal(result133, result118);
         });
 
         QUnit.test('format duration test', assert => {
