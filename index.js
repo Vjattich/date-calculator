@@ -174,6 +174,9 @@ let CAL_HOLD = false;
 let pressTimerId = null;
 let pressAt = null;
 let pressHandled = false;
+let PICK_ANCHOR = null;
+let dragRange = null;
+let menuFromMouse = false;
 
 let SHARED_ZONE = null;
 
@@ -974,10 +977,20 @@ const currentKeys = function (value) {
     return null == one ? [] : [fixDate(one, one.start.moment()).format(CAL_KEY)];
 };
 
+//the first field is the list of picked days, and the grid never moves the month out from
+//under the pointer that is picking on it
+const writeSeeds = function (keys) {
+
+    INPUTS[0].value = formatPicks(keys.map(one => moment(one, CAL_KEY)));
+
+    CAL_HOLD = true;
+    runCalc();
+    CAL_HOLD = false;
+};
+
 const toggleSeed = function (key) {
 
-    let input = INPUTS[0],
-        keys = currentKeys(input.value.trim()),
+    let keys = currentKeys(INPUTS[0].value.trim()),
         at = keys.indexOf(key);
 
     if (-1 === at) {
@@ -988,35 +1001,155 @@ const toggleSeed = function (key) {
 
     keys.sort();
 
-    input.value = formatPicks(keys.map(one => moment(one, CAL_KEY)));
+    writeSeeds(keys);
+};
 
-    CAL_HOLD = true;
+const keysBetween = function (fromKey, toKey) {
+
+    let from = moment(fromKey, CAL_KEY),
+        to = moment(toKey, CAL_KEY);
+
+    if (from.isAfter(to)) {
+        let swap = from;
+        from = to;
+        to = swap;
+    }
+
+    let keys = [],
+        day = from.clone();
+
+    while (!day.isAfter(to, 'day') && keys.length <= RANGE_LIMIT) {
+        keys.push(day.format(CAL_KEY));
+        day.add(1, 'days');
+    }
+
+    return RANGE_LIMIT < keys.length ? null : keys;
+};
+
+const anchorFor = function (key) {
+
+    if (null != PICK_ANCHOR) {
+        return PICK_ANCHOR;
+    }
+
+    let picked = Array.from(pickedKeys()).sort();
+
+    return 0 === picked.length ? key : picked[0];
+};
+
+const selectRange = function (key) {
+
+    let anchor = anchorFor(key),
+        keys = keysBetween(anchor, key);
+
+    if (null == keys) {
+        return;
+    }
+
+    PICK_ANCHOR = anchor;
+
+    writeSeeds(keys);
+};
+
+const pickDay = function (key, second) {
+
+    let useSecond = second && 0 !== INPUTS[0].value.trim().length,
+        input = INPUTS[useSecond ? 1 : 0];
+
+    input.value = moment(key, CAL_KEY).format(CAL_INPUT_PATTERN) + clockOf(input.value);
+
+    if (useSecond) {
+
+        CAL_HOLD = true;
+        runCalc();
+        CAL_HOLD = false;
+
+        return;
+    }
+
+    PICK_ANCHOR = key;
+
+    if (null != parseDate(INPUTS[1].value)) {
+        INPUTS[1].value = '';
+    }
+
     runCalc();
-    CAL_HOLD = false;
+};
+
+const endDrag = function () {
+
+    if (null == dragRange) {
+        return;
+    }
+
+    let view = document.getElementById('calendar-view');
+
+    if (null != view) {
+        view.style.touchAction = '';
+    }
+
+    dragRange = null;
 };
 
 const cancelPress = function () {
 
     window.clearTimeout(pressTimerId);
 
+    endDrag();
+
     pressTimerId = null;
     pressAt = null;
 };
 
-//touch has no shift key, so holding a day does the same job
-const onCalendarPointerDown = function (e) {
+const paintDrag = function (keys) {
 
-    if ('mouse' === e.pointerType) {
+    let picked = new Set(keys),
+        cells = dragRange.cells;
+
+    for (let i = 0; i < cells.length; i++) {
+        cells[i].classList.toggle('cal-sel', picked.has(cells[i].dataset.day));
+    }
+};
+
+const dragTo = function (x, y) {
+
+    let under = document.elementFromPoint(x, y),
+        cell = null == under ? null : under.closest('.cal-day');
+
+    if (null == cell || cell.dataset.day === dragRange.key) {
         return;
     }
 
+    let keys = keysBetween(dragRange.anchor, cell.dataset.day);
+
+    if (null == keys) {
+        return;
+    }
+
+    dragRange.key = cell.dataset.day;
+    dragRange.moved = true;
+
+    paintDrag(keys);
+};
+
+const onCalendarPointerDown = function (e) {
+
     let cell = e.target.closest('.cal-day');
+
+    if ('mouse' === e.pointerType) {
+        pressHandled = false;
+        menuFromMouse = 2 === e.button;
+        return;
+    }
+
+    menuFromMouse = false;
 
     if (null == cell) {
         return;
     }
 
-    let key = cell.dataset.day;
+    let key = cell.dataset.day,
+        view = document.getElementById('calendar-view');
 
     pressHandled = false;
     pressAt = {x: e.clientX, y: e.clientY};
@@ -1024,13 +1157,30 @@ const onCalendarPointerDown = function (e) {
     window.clearTimeout(pressTimerId);
 
     pressTimerId = window.setTimeout(() => {
+
         pressTimerId = null;
         pressHandled = true;
-        toggleSeed(key);
+
+        dragRange = {
+            anchor: key,
+            key: key,
+            moved: false,
+            cells: view.getElementsByClassName('cal-day')
+        };
+
+        view.style.touchAction = 'none';
+
+        cell.classList.toggle('cal-sel');
+
     }, LONG_PRESS_MS);
 };
 
 const onCalendarPointerMove = function (e) {
+
+    if (null != dragRange) {
+        dragTo(e.clientX, e.clientY);
+        return;
+    }
 
     if (null == pressAt) {
         return;
@@ -1038,6 +1188,51 @@ const onCalendarPointerMove = function (e) {
 
     if (PRESS_SLOP < Math.abs(e.clientX - pressAt.x) + Math.abs(e.clientY - pressAt.y)) {
         cancelPress();
+    }
+};
+
+const onCalendarTouchMove = function (e) {
+
+    if (null != dragRange && e.cancelable) {
+        e.preventDefault();
+    }
+};
+
+const onCalendarPointerUp = function () {
+
+    let drag = dragRange;
+
+    cancelPress();
+
+    if (null == drag) {
+        return;
+    }
+
+    if (!drag.moved) {
+        toggleSeed(drag.anchor);
+        return;
+    }
+
+    let keys = keysBetween(drag.anchor, drag.key);
+
+    if (null == keys) {
+        renderCalendar();
+        return;
+    }
+
+    PICK_ANCHOR = drag.anchor;
+
+    writeSeeds(keys);
+};
+
+const onCalendarPointerCancel = function () {
+
+    let painted = null != dragRange;
+
+    cancelPress();
+
+    if (painted) {
+        renderCalendar();
     }
 };
 
@@ -1076,22 +1271,16 @@ const onCalendarClick = function (e) {
     }
 
     if (e.shiftKey) {
+        selectRange(cell.dataset.day);
+        return;
+    }
+
+    if (e.ctrlKey || e.metaKey) {
         toggleSeed(cell.dataset.day);
         return;
     }
 
-    //ctrl/cmd fills the second field, unless the first one is still empty
-    let second = (e.ctrlKey || e.metaKey) && 0 !== INPUTS[0].value.trim().length,
-        input = second ? INPUTS[1] : INPUTS[0];
-
-    input.value = moment(cell.dataset.day, CAL_KEY).format(CAL_INPUT_PATTERN) + clockOf(input.value);
-
-    //a plain click is a new setup, so an old end date goes, while a duration stays
-    if (!second && null != parseDate(INPUTS[1].value)) {
-        INPUTS[1].value = '';
-    }
-
-    runCalc();
+    pickDay(cell.dataset.day, false);
 };
 
 const renderResult = function (text) {
@@ -1122,6 +1311,7 @@ const renderEmpty = function () {
     resetState();
 
     CAL_MONTH = null;
+    PICK_ANCHOR = null;
 
     let result = document.getElementById('result'),
         zone = document.getElementById('timezone');
@@ -1633,17 +1823,27 @@ window.onload = function () {
     document.getElementById('calendar-btn').addEventListener('click', onCalendar);
     let view = document.getElementById('calendar-view');
 
-    //none of the pointer handlers cancel the gesture, so the browser never waits on them
     view.addEventListener('click', onCalendarClick);
     view.addEventListener('pointerdown', onCalendarPointerDown, {passive: true});
     view.addEventListener('pointermove', onCalendarPointerMove, {passive: true});
-    view.addEventListener('pointerup', cancelPress, {passive: true});
-    view.addEventListener('pointercancel', cancelPress, {passive: true});
+    view.addEventListener('pointerup', onCalendarPointerUp, {passive: true});
+    view.addEventListener('pointercancel', onCalendarPointerCancel, {passive: true});
+    view.addEventListener('touchmove', onCalendarTouchMove, {passive: false});
     view.addEventListener('contextmenu', (e) => {
 
-        //the hold is the gesture, the os menu would eat it
-        if (null != e.target.closest('.cal-day')) {
-            e.preventDefault();
+        let cell = e.target.closest('.cal-day'),
+            fromMouse = menuFromMouse;
+
+        menuFromMouse = false;
+
+        if (null == cell) {
+            return;
+        }
+
+        e.preventDefault();
+
+        if (fromMouse) {
+            pickDay(cell.dataset.day, true);
         }
     });
 
@@ -1660,6 +1860,8 @@ window.onload = function () {
     INPUTS[0].addEventListener('input', () => {
 
         fitInput(INPUTS[0]);
+
+        PICK_ANCHOR = null;
 
         if (0 === INPUTS[0].value.trim().length) {
             renderEmpty();
