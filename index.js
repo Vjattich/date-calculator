@@ -43,6 +43,19 @@ const RU_WORDS = {
     суббота: 'Saturday', субботу: 'Saturday', субботы: 'Saturday', сб: 'Saturday',
     воскресенье: 'Sunday', воскресенья: 'Sunday', вс: 'Sunday',
 
+    январь: 'January', января: 'January', январе: 'January', янв: 'January',
+    февраль: 'February', февраля: 'February', феврале: 'February', февр: 'February', фев: 'February',
+    март: 'March', марта: 'March', марте: 'March', мар: 'March',
+    апрель: 'April', апреля: 'April', апреле: 'April', апр: 'April',
+    май: 'May', мая: 'May', мае: 'May',
+    июнь: 'June', июня: 'June', июне: 'June', июн: 'June',
+    июль: 'July', июля: 'July', июле: 'July', июл: 'July',
+    август: 'August', августа: 'August', августе: 'August', авг: 'August',
+    сентябрь: 'September', сентября: 'September', сентябре: 'September', сент: 'September', сен: 'September',
+    октябрь: 'October', октября: 'October', октябре: 'October', окт: 'October',
+    ноябрь: 'November', ноября: 'November', ноябре: 'November', нояб: 'November', ноя: 'November',
+    декабрь: 'December', декабря: 'December', декабре: 'December', дек: 'December',
+
     'следующей неделе': 'next week', 'следующая неделя': 'next week', 'след неделе': 'next week', 'след неделя': 'next week',
     'прошлой неделе': 'last week', 'прошлая неделя': 'last week',
     'предыдущей неделе': 'last week', 'предыдущая неделя': 'last week',
@@ -101,6 +114,11 @@ const RU_UNIT_ALTERNATION = Object.keys(UNITS)
     .join('|');
 const RU_IN_REGEX = new RegExp('через\\s+(\\d+)\\s*(' + RU_UNIT_ALTERNATION + ')(?![' + RU_LETTERS + '])', 'gi');
 const RU_AGO_REGEX = new RegExp('(\\d+)\\s*(' + RU_UNIT_ALTERNATION + ')(?![' + RU_LETTERS + '])\\s+назад', 'gi');
+//"2е", "2-е", "2-го" is the day written the russian way, chrono only wants the number.
+//'го' would eat "2 год", so a unit letter right after the tail keeps the tail
+const RU_ORDINAL_REGEX = new RegExp('(\\d)\\s*-?\\s*(?:ого|ое|го|ый|й|е)(?![' + LETTERS + '])', 'gi');
+//"2 of September" and "2nd of September" are the same day as "2 September"
+const OF_REGEX = new RegExp('(\\d)\\s*(?:st|nd|rd|th)?\\s+of\\s+(?=[' + LETTERS + '])', 'gi');
 const BACKWARD_REGEX = new RegExp('\\b(last|past|ago|yesterday)\\b', 'i');
 //chrono ships more than english, so a date written anywhere else still lands
 const CHRONO_LOCALES = ['ru', 'uk', 'fr', 'nl', 'de', 'es', 'pt', 'it', 'fi', 'sv', 'ja', 'vi'];
@@ -1518,15 +1536,18 @@ const capitalize = function (word) {
     return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
 };
 
-//chrono reads english best, so swap the russian words it knows about before parsing
+//convert to english for chrono
 const translate = function (string) {
 
-    //all three russian passes need cyrillic to match, so an english string never runs them
+    string = string.replace(OF_REGEX, '$1 ');
+
     if (HAS_RU_REGEX.test(string)) {
         string = string
+            .replace(RU_ORDINAL_REGEX, '$1 ')
             .replace(RU_WORDS_REGEX, (all, before, word) => before + RU_WORDS[word.toLowerCase()])
             .replace(RU_IN_REGEX, (all, num, unit) => 'in ' + num + ' ' + formatUnits(unit))
-            .replace(RU_AGO_REGEX, (all, num, unit) => num + ' ' + formatUnits(unit) + ' ago');
+            .replace(RU_AGO_REGEX, (all, num, unit) => num + ' ' + formatUnits(unit) + ' ago')
+            .replace(/ {2,}/g, ' ');
     }
 
     return string.replace(CASE_REGEX, capitalize);

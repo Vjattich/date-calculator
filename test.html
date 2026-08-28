@@ -297,6 +297,73 @@
             //the spaces around the dash are how it reads best, not how it has to be typed
             check('22.11.1996-25.11.1996', '* 1 day', block);
             check('22.11.1996-25.11.1996', '', range);
+            //every russian month, in the form a russian speaker types
+            checkWithRef('5 января 1997', '', '05.01.1997 Sunday January');
+            checkWithRef('5 февраля 1997', '', '05.02.1997 Wednesday February');
+            checkWithRef('5 марта 1997', '', '05.03.1997 Wednesday March');
+            checkWithRef('5 апреля 1997', '', '05.04.1997 Saturday April');
+            checkWithRef('5 мая 1997', '', '05.05.1997 Monday May');
+            checkWithRef('5 июня 1997', '', '05.06.1997 Thursday June');
+            checkWithRef('5 июля 1997', '', '05.07.1997 Saturday July');
+            checkWithRef('5 августа 1997', '', '05.08.1997 Tuesday August');
+            checkWithRef('5 сентября 1997', '', '05.09.1997 Friday September');
+            checkWithRef('5 октября 1997', '', '05.10.1997 Sunday October');
+            checkWithRef('5 ноября 1997', '', '05.11.1997 Wednesday November');
+            checkWithRef('5 декабря 1997', '', '05.12.1997 Friday December');
+
+            //the short form of every month
+            checkWithRef('5 янв 1997', '', '05.01.1997 Sunday January');
+            checkWithRef('5 фев 1997', '', '05.02.1997 Wednesday February');
+            checkWithRef('5 мар 1997', '', '05.03.1997 Wednesday March');
+            checkWithRef('5 апр 1997', '', '05.04.1997 Saturday April');
+            checkWithRef('5 май 1997', '', '05.05.1997 Monday May');
+            checkWithRef('5 июн 1997', '', '05.06.1997 Thursday June');
+            checkWithRef('5 июл 1997', '', '05.07.1997 Saturday July');
+            checkWithRef('5 авг 1997', '', '05.08.1997 Tuesday August');
+            checkWithRef('5 сен 1997', '', '05.09.1997 Friday September');
+            checkWithRef('5 окт 1997', '', '05.10.1997 Sunday October');
+            checkWithRef('5 ноя 1997', '', '05.11.1997 Wednesday November');
+            checkWithRef('5 дек 1997', '', '05.12.1997 Friday December');
+
+            //one month written every way the keyboard can produce
+            const SEPTEMBER = '05.09.1997 Friday September';
+
+            checkWithRef('5 September 1997', '', SEPTEMBER);
+            checkWithRef('5 of September 1997', '', SEPTEMBER);
+            checkWithRef('5th of September 1997', '', SEPTEMBER);
+            checkWithRef('5 сентября 1997', '', SEPTEMBER);
+            checkWithRef('5 сентябрь 1997', '', SEPTEMBER);
+            checkWithRef('5 сент 1997', '', SEPTEMBER);
+            checkWithRef('5 СЕНТЯБРЯ 1997', '', SEPTEMBER);
+
+            //the day carries its own tail in russian
+            checkWithRef('5е сентября 1997', '', SEPTEMBER);
+            checkWithRef('5-е сентября 1997', '', SEPTEMBER);
+            checkWithRef('5-го сентября 1997', '', SEPTEMBER);
+            checkWithRef('5ое сентября 1997', '', SEPTEMBER);
+
+            //a month with no year is read off the reference, forwards
+            checkWithRef('5 декабря', '', '05.12.1996 Thursday December');
+            checkWithRef('5 января', '', '05.01.1997 Sunday January');
+
+            //a month is a date like any other, so both fields take one
+            checkWithRef('5 мая 1997', '1 день', '06.05.1997 Tuesday May');
+            checkWithRef('5 мая 1997', '12 мая 1997', '7 days');
+            checkWithRef('5е мая 1997', '', '05.05.1997 Monday May');
+
+            //a month with no day is a date too, the russian form only has to land on the same one
+            let september = checkWithRef('September 1997', '');
+
+            assert.ok(0 !== september.length, september);
+            checkWithRef('сентябрь 1997', '', september);
+            checkWithRef('в сентябре 1997', '', september);
+
+            //a month name must not swallow the unit that sounds like it
+            check('22.11.1996', '1 месяц', MONTH);
+            check('22.11.1996', '1 м', MINUTE);
+            check('22.11.1996', '1 г', YEAR);
+            check('22.11.1996', '1 д', DAY);
+            check('22.11.1996', '1 с', SECOND);
         })
 
         QUnit.test('format duration test', assert => {
