@@ -685,16 +685,34 @@ const resolveDates = function (value, referenceDate) {
     return null == one ? null : {days: [one], block: false};
 };
 
-//the label is always the step that was typed, the cycle is what the days actually move by
-const calcPattern = function (step, picked) {
+const scaleStep = function (step, turns) {
+    return step.map(op => ({num: op.num * turns, unit: op.unit}));
+};
+
+const rollAhead = function (cycle, seeds, referenceDate) {
+
+    let today = moment(referenceDate).startOf('day'),
+        last = seeds[seeds.length - 1],
+        days = stepDays(cycle),
+        turns = 0 === days ? 1 : Math.max(1, Math.floor(today.diff(last, 'days') / days));
+
+    for (let i = 0; i < PATTERN_LIMIT && stepBy(scaleStep(cycle, turns), last).isBefore(today, 'day'); i++) {
+        turns++;
+    }
+
+    return scaleStep(cycle, turns);
+};
+
+const calcPattern = function (step, picked, referenceDate) {
 
     let seeds = picked.days,
         cycle = picked.block ? cycleOf(step, seeds) : step,
-        label = 'every ' + stepLabel(step);
+        label = 'every ' + stepLabel(step),
+        jump = rollAhead(cycle, seeds, referenceDate);
 
     LAST_PATTERN = {step: cycle, seeds: seeds};
 
-    return keepDates(seeds.map(seed => stepBy(cycle, seed)), label, label);
+    return keepDates(seeds.map(seed => stepBy(jump, seed)), label, label);
 };
 
 const calcRes = function (inputs, referenceDate) {
@@ -721,7 +739,7 @@ const calcRes = function (inputs, referenceDate) {
         step = patternStepOf(value_2);
 
     if (null != step) {
-        return calcPattern(step, picked);
+        return calcPattern(step, picked, referenceDate);
     }
 
     if (1 < dates.length) {
