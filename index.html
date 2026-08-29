@@ -106,7 +106,7 @@
             white-space: nowrap;
         }
 
-        .share-btn-style, .calendar-btn-style {
+        .share-btn-style, .calendar-btn-style, .exclude-btn-style {
             background: none;
             border: 0;
             padding: 0;
@@ -114,12 +114,28 @@
             cursor: pointer;
         }
 
-        .share, .calendar {
+        .share, .calendar, .exclude {
             transition: transform 0.1s ease-in;
         }
 
-        .share-btn-style:active .share, .calendar-btn-style:active .calendar {
+        .share-btn-style:active .share, .calendar-btn-style:active .calendar, .exclude-btn-style:active .exclude {
             transform: scale(0.9);
+        }
+
+        /* off is a button that is only offered, on is the grid picking into the brackets */
+        .exclude-btn-style {
+            opacity: 0.45;
+            transition: opacity 0.2s ease;
+        }
+
+        .exclude-btn-style.on {
+            opacity: 1;
+        }
+
+        .exclude-holder {
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+            display: flex;
+            align-items: center;
         }
 
         .copy-text {
@@ -146,6 +162,17 @@
             transition: opacity 0.3s ease, visibility 0.3s ease;
             display: flex;
             align-items: center;
+        }
+
+        .actions-left {
+            position: absolute;
+            top: 40%;
+            right: 100%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-right: 0.7em;
         }
 
         #timezone {
@@ -247,6 +274,12 @@
         .cal-sel, .cal-sel:hover {
             background: var(--ink);
             color: var(--bg);
+        }
+
+        .cal-skip, .cal-skip:hover {
+            background: var(--cell);
+            color: var(--muted);
+            text-decoration: line-through;
         }
 
         #tutorial-layer {
@@ -449,7 +482,7 @@
                 animation: none;
             }
 
-            .result, .actions, .calendar-holder, .calendar-view, .cal-day, .cal-nav {
+            .result, .actions, .calendar-holder, .exclude-holder, .exclude-btn-style, .calendar-view, .cal-day, .cal-nav {
                 transition: none;
             }
         }
@@ -578,7 +611,7 @@
             visibility: hidden
         }
 
-        .actions.hidden, .calendar-holder.hidden {
+        .actions.hidden, .calendar-holder.hidden, .exclude-holder.hidden {
             opacity: 0;
         }
 
@@ -635,6 +668,10 @@
 
             .actions {
                 margin-left: 0.4em;
+            }
+
+            .actions-left {
+                margin-right: 0.4em;
             }
 
             .calendar-block {
@@ -721,6 +758,11 @@
             <span id="date-tooltip" class="tooltip-left-up opacity-0">Can't read this date</span>
         </div>
         <div class="calendar-block">
+            <div class="actions-left">
+                <div id="exclude-holder" class="exclude-holder hidden">
+                    <button id="exclude-btn" class="exclude-btn-style" aria-label="Leave days out of the repeat" aria-pressed="false"><svg class="box30 exclude" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="var(--ink)" stroke-width="1.8" stroke-linecap="round"><path d="M9.5 3.5C7 6.8 7 17.2 9.5 20.5"/><path d="M14.5 3.5c2.5 3.3 2.5 13.7 0 17"/></svg></button>
+                </div>
+            </div>
             <div id="calendar-view" class="calendar-view"></div>
             <div class="actions hidden">
                 <div id="share-holder" class="share-holder">
@@ -762,6 +804,11 @@
             <dd><code>* 2 days</code>, <code>every week</code>, <code>каждые 3 дня</code> — every day in the first field
                 moves on by that step. A range moves as a block instead: <code>22.11.1996 - 25.11.1996</code> with
                 <code>* 4 d</code> is four days on, four days off</dd>
+
+            <dt>Days off</dt>
+            <dd>the <code>( )</code> button next to the grid puts brackets on a repeat:
+                <code>* week (04.05.2026 - 10.05.2026)</code>. Days picked while it is on go inside them and drop out
+                of the repeat, and a turn with nothing left in it is skipped whole</dd>
 
             <dt>Calendar</dt>
             <dd>click fills the first field, ctrl-click the second, shift-click or a long press picks several days</dd>

@@ -140,6 +140,7 @@ const CAL_INPUT_PATTERN = 'DD.MM.YYYY';
 const PLAIN_DATE_REGEX = new RegExp('^\\d{2}\\.\\d{2}\\.\\d{4}$');
 //"* 2 days", "every 2 weeks", "каждые 3 дня" — the second field turns into a repeat step
 const PATTERN_REGEX = new RegExp('^\\s*(?:\\*|x|х|every|each|кажд[а-яё]*)\\s*(.+)$', 'i');
+const SKIP_REGEX = new RegExp('\\(([^)]*)\\)\\s*$');
 const SEED_SEPARATOR = ',';
 //a dash between spaces is never part of a date, so that split is taken as read; a bare one
 //might be (1996-11-22, 25-12-2026), so it is only a separator when both halves prove they are days
@@ -193,6 +194,7 @@ let pressTimerId = null;
 let pressAt = null;
 let pressHandled = false;
 let PICK_ANCHOR = null;
+let EXCLUDE_ON = false;
 let dragRange = null;
 let menuFromMouse = false;
 
@@ -383,7 +385,7 @@ const formatPicks = function (moments) {
 //a repeat has no direction and cannot stand still, "* -2 days" is the same as "* 2 days"
 const patternStepOf = function (value) {
 
-    let match = value.match(PATTERN_REGEX);
+    let match = value.replace(SKIP_REGEX, '').trim().match(PATTERN_REGEX);
 
     if (null == match) {
         return null;
@@ -400,6 +402,22 @@ const patternStepOf = function (value) {
     operations = operations.map(op => ({num: Math.abs(op.num), unit: op.unit}));
 
     return operations.some(op => 0 < op.num) ? operations : null;
+};
+
+//the days named inside the brackets, in the same shapes the first field takes. One day is a
+//list of one, and the split that reads a list wants a comma before it will say so
+const patternSkips = function (value, referenceDate) {
+
+    let match = value.match(SKIP_REGEX),
+        inside = null == match ? '' : match[1].trim();
+
+    if (0 === inside.length) {
+        return new Set();
+    }
+
+    let found = resolveDates(inside, referenceDate);
+
+    return new Set(null == found ? [] : found.days.map(one => one.format(CAL_KEY)));
 };
 
 const stepBy = function (step, day) {
@@ -596,6 +614,8 @@ const seedKeys = function (value, referenceDate) {
     return null == found ? [] : found.map(one => one.format(CAL_KEY));
 };
 
+const NO_KEYS = new Set();
+
 let PICKED_CACHE = {value: null, keys: new Set()};
 const pickedKeys = function () {
 
@@ -624,6 +644,7 @@ const patternMarks = function (month) {
 
     let step = LAST_PATTERN.step,
         seeds = LAST_PATTERN.seeds,
+        skips = LAST_PATTERN.skips,
         from = firstCell(month),
         //the window resolved to milliseconds once, so the walk below is a number compare per step
         fromMs = from.valueOf(),
@@ -642,7 +663,12 @@ const patternMarks = function (month) {
             }
 
             if (fromMs <= ms) {
-                marks.add(day.format(CAL_KEY));
+
+                let key = day.format(CAL_KEY);
+
+                if (!skips.has(key)) {
+                    marks.add(key);
+                }
             }
 
             day = stepBy(step, day);
@@ -689,30 +715,49 @@ const scaleStep = function (step, turns) {
     return step.map(op => ({num: op.num * turns, unit: op.unit}));
 };
 
-const rollAhead = function (cycle, seeds, referenceDate) {
+const rollAhead = function (cycle, seeds, skips, referenceDate) {
 
     let today = moment(referenceDate).startOf('day'),
         last = seeds[seeds.length - 1],
         days = stepDays(cycle),
         turns = 0 === days ? 1 : Math.max(1, Math.floor(today.diff(last, 'days') / days));
 
-    for (let i = 0; i < PATTERN_LIMIT && stepBy(scaleStep(cycle, turns), last).isBefore(today, 'day'); i++) {
+    for (let i = 0; i < PATTERN_LIMIT; i++) {
+
+        let jump = scaleStep(cycle, turns);
+
+        if (!stepBy(jump, last).isBefore(today, 'day')) {
+
+            let landed = seeds.map(seed => stepBy(jump, seed))
+                .filter(day => !skips.has(day.format(CAL_KEY)));
+
+            //a turn the days were all taken out of is a turn that does not happen
+            if (0 !== landed.length) {
+                return landed;
+            }
+        }
+
         turns++;
     }
 
-    return scaleStep(cycle, turns);
+    return [];
 };
 
-const calcPattern = function (step, picked, referenceDate) {
+const calcPattern = function (step, picked, skips, referenceDate) {
 
     let seeds = picked.days,
         cycle = picked.block ? cycleOf(step, seeds) : step,
         label = 'every ' + stepLabel(step),
-        jump = rollAhead(cycle, seeds, referenceDate);
+        days = rollAhead(cycle, seeds, skips, referenceDate);
 
-    LAST_PATTERN = {step: cycle, seeds: seeds};
+    //every turn the walk could reach was emptied by the brackets, so the repeat names no day
+    if (0 === days.length) {
+        return '';
+    }
 
-    return keepDates(seeds.map(seed => stepBy(jump, seed)), label, label);
+    LAST_PATTERN = {step: cycle, seeds: seeds, skips: skips};
+
+    return keepDates(days, label, label);
 };
 
 const calcRes = function (inputs, referenceDate) {
@@ -739,7 +784,7 @@ const calcRes = function (inputs, referenceDate) {
         step = patternStepOf(value_2);
 
     if (null != step) {
-        return calcPattern(step, picked, referenceDate);
+        return calcPattern(step, picked, patternSkips(value_2, referenceDate), referenceDate);
     }
 
     if (1 < dates.length) {
@@ -876,6 +921,10 @@ const dayClass = function (day, key, view) {
         classes += ' cal-sel';
     }
 
+    if (view.skips.has(key)) {
+        classes += ' cal-skip';
+    }
+
     return classes;
 };
 
@@ -917,7 +966,8 @@ const calendarHtml = function (month) {
             today: today.format(CAL_KEY),
             marks: patternMarks(month),
             picked: pickedKeys(),
-            selected: selectedKeys()
+            selected: selectedKeys(),
+            skips: null == LAST_PATTERN ? NO_KEYS : LAST_PATTERN.skips
         },
         html = '<div class="cal-head">'
             + '<button type="button" class="cal-nav" data-step="-1" aria-label="Previous month">&#8249;</button>'
@@ -983,6 +1033,18 @@ const toggleActions = function () {
     if (null != calendar) {
         calendar.classList.toggle('hidden', empty);
     }
+
+    let exclude = document.getElementById('exclude-holder'),
+        repeat = null != LAST_PATTERN;
+
+    if (null != exclude) {
+        exclude.classList.toggle('hidden', !repeat);
+    }
+
+    //the days can only be taken out of a repeat, so the mode goes with it
+    if (!repeat && EXCLUDE_ON) {
+        setExclude(false);
+    }
 };
 
 //a picked day keeps the time of day that field already carried
@@ -1015,7 +1077,51 @@ const currentKeys = function (value) {
 
 //the first field is the list of picked days, and the grid never moves the month out from
 //under the pointer that is picking on it
+const skipKeys = function () {
+
+    let match = INPUTS[1].value.match(SKIP_REGEX);
+
+    //currentKeys is the one that reads a lone date as a list, which is what one day off is
+    return null == match ? [] : currentKeys(match[1].trim());
+};
+
+//the brackets are a list of days like the first field, so they are written the same way
+const writeSkips = function (keys) {
+
+    let step = INPUTS[1].value.trim().replace(SKIP_REGEX, '').trim(),
+        inside = 0 === keys.length ? '' : formatPicks(keys.map(one => moment(one, CAL_KEY)));
+
+    INPUTS[1].value = step + ' (' + inside + ')';
+
+    CAL_HOLD = true;
+    runCalc();
+    CAL_HOLD = false;
+};
+
+const toggleSkip = function (key) {
+
+    PICK_ANCHOR = key;
+
+    let keys = skipKeys(),
+        at = keys.indexOf(key);
+
+    if (-1 === at) {
+        keys.push(key);
+    } else {
+        keys.splice(at, 1);
+    }
+
+    keys.sort();
+
+    writeSkips(keys);
+};
+
 const writeSeeds = function (keys) {
+
+    if (EXCLUDE_ON) {
+        writeSkips(Array.from(new Set(skipKeys().concat(keys))).sort());
+        return;
+    }
 
     INPUTS[0].value = formatPicks(keys.map(one => moment(one, CAL_KEY)));
 
@@ -1025,6 +1131,11 @@ const writeSeeds = function (keys) {
 };
 
 const toggleSeed = function (key) {
+
+    if (EXCLUDE_ON) {
+        toggleSkip(key);
+        return;
+    }
 
     let keys = currentKeys(INPUTS[0].value.trim()),
         at = keys.indexOf(key);
@@ -1068,6 +1179,10 @@ const anchorFor = function (key) {
         return PICK_ANCHOR;
     }
 
+    if (EXCLUDE_ON) {
+        return key;
+    }
+
     let picked = Array.from(pickedKeys()).sort();
 
     return 0 === picked.length ? key : picked[0];
@@ -1089,6 +1204,11 @@ const selectRange = function (key) {
 
 const pickDay = function (key, second) {
 
+    if (EXCLUDE_ON) {
+        toggleSkip(key);
+        return;
+    }
+
     let useSecond = second && 0 !== INPUTS[0].value.trim().length,
         input = INPUTS[useSecond ? 1 : 0];
 
@@ -1105,11 +1225,11 @@ const pickDay = function (key, second) {
 
     PICK_ANCHOR = key;
 
-    if (null != parseDate(INPUTS[1].value)) {
-        INPUTS[1].value = '';
-    }
+    INPUTS[1].value = '';
 
+    CAL_HOLD = true;
     runCalc();
+    CAL_HOLD = false;
 };
 
 const endDrag = function () {
@@ -1346,8 +1466,13 @@ const renderEmpty = function () {
 
     resetState();
 
-    CAL_MONTH = null;
+    if (!CAL_HOLD) {
+        CAL_MONTH = null;
+    }
+
     PICK_ANCHOR = null;
+
+    INPUTS[1].value = INPUTS[1].value.replace(SKIP_REGEX, '').trim();
 
     let result = document.getElementById('result'),
         zone = document.getElementById('timezone');
@@ -1375,6 +1500,7 @@ const fitInput = function (input) {
 const runCalc = function () {
 
     fitInput(INPUTS[0]);
+    fitInput(INPUTS[1]);
 
     //an empty first field is a reset, not a failed parse
     if (0 === INPUTS[0].value.trim().length) {
@@ -1795,6 +1921,45 @@ const showCopied = function (text) {
     }, COPIED_MS);
 };
 
+const setExclude = function (on) {
+
+    EXCLUDE_ON = on;
+
+    PICK_ANCHOR = null;
+
+    let button = document.getElementById('exclude-btn');
+
+    if (null != button) {
+        button.classList.toggle('on', on);
+        button.setAttribute('aria-pressed', on ? 'true' : 'false');
+    }
+};
+
+const onExclude = function () {
+
+    let value = INPUTS[1].value.trim(),
+        match = value.match(SKIP_REGEX);
+
+    if (EXCLUDE_ON) {
+
+        if (null != match && 0 === match[1].trim().length) {
+            INPUTS[1].value = value.replace(SKIP_REGEX, '').trim();
+        }
+
+        setExclude(false);
+        runCalc();
+
+        return;
+    }
+
+    if (null == match) {
+        INPUTS[1].value = value + ' ()';
+    }
+
+    setExclude(true);
+    runCalc();
+};
+
 const onShare = function () {
 
     if (INPUTS[0].value.trim().length === 0) {
@@ -1859,6 +2024,7 @@ window.onload = function () {
     document.addEventListener('keydown', onPageKeyDown);
 
     document.getElementById('share-btn').addEventListener('click', onShare);
+    document.getElementById('exclude-btn').addEventListener('click', onExclude);
     document.getElementById('calendar-btn').addEventListener('click', onCalendar);
     let view = document.getElementById('calendar-view');
 
