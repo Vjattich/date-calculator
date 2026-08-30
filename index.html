@@ -54,7 +54,8 @@
                 "Add or subtract years, months, weeks, days, hours, minutes and seconds",
                 "Count the time between two dates",
                 "Build a repeating pattern from picked days and get the next date it falls on",
-                "Jump the calendar to any month by name: August 2025, 08.2025, 2025, next year",
+                "A date that stops at the month is the first day of it: November 1996, ноябрь 1996, 11.1996",
+                "Jump the calendar to any month by typing it on the title",
                 "Share any answer as a link"
             ],
             "isAccessibleForFree": true,
@@ -828,7 +829,9 @@
         <dl class="about-list">
             <dt>Dates</dt>
             <dd><code>25.12.2026</code>, <code>2026-12-25</code>, <code>12/25/2026</code>, <code>22 Nov 1996</code>,
-                <code>today</code>, <code>next Friday</code>, <code>следующую пятницу</code>, <code>щас</code></dd>
+                <code>today</code>, <code>next Friday</code>, <code>следующую пятницу</code>, <code>щас</code>.
+                A date that stops at the month is the first day of it: <code>November 1996</code>,
+                <code>ноябрь 1996</code>, <code>11.1996</code>, <code>2026</code></dd>
 
             <dt>Amounts</dt>
             <dd><code>10 days</code>, <code>33y</code>, <code>1ч30м</code>, <code>-4 weeks 4 days</code>,
@@ -853,9 +856,9 @@
 
             <dt>Calendar</dt>
             <dd>click fills the first field, ctrl-click the second, shift-click or a long press picks several days.
-                The month title is a field of its own: <code>November 1996</code>, <code>ноябрь 1996</code>,
-                <code>11.1996</code>, <code>2025</code>, <code>next year</code> — a month with no day is read as
-                the first of it, and the grid opens there instead of on today</dd>
+                The month title is a field of its own, and it reads whatever the first field reads —
+                <code>November 1996</code>, <code>ноябрь 1996</code>, <code>11.1996</code>,
+                <code>next year</code> — the grid opens there instead of on today</dd>
 
             <dt>Keys</dt>
             <dd><code>Enter</code> calculates, <code>Tab</code> swaps fields, <code>Esc</code> steps out of them; on

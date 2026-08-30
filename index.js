@@ -93,12 +93,12 @@ const RU_WORDS_ALTERNATION = Object.keys(RU_WORDS)
     .join('|');
 const RU_WORDS_REGEX = new RegExp('(^|[^' + RU_LETTERS + '])(' + RU_WORDS_ALTERNATION + ')(?![' + RU_LETTERS + '])', 'gi');
 //chrono only recognises these capitalised, so the input gets normalised first
-const CASE_WORDS = [
-    'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday',
-    'Mon', 'Tue', 'Tues', 'Wed', 'Thu', 'Thur', 'Thurs', 'Fri', 'Sat', 'Sun',
-    'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December',
-    'Jan', 'Feb', 'Mar', 'Apr', 'Jun', 'Jul', 'Aug', 'Sep', 'Sept', 'Oct', 'Nov', 'Dec'
-];
+const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const WEEKDAY_SHORTS = ['Mon', 'Tue', 'Tues', 'Wed', 'Thu', 'Thur', 'Thurs', 'Fri', 'Sat', 'Sun'];
+//in order, so the place a name holds in the list is the number of its month
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const MONTH_SHORTS = ['Jan', 'Feb', 'Mar', 'Apr', 'Jun', 'Jul', 'Aug', 'Sep', 'Sept', 'Oct', 'Nov', 'Dec'];
+const CASE_WORDS = WEEKDAYS.concat(WEEKDAY_SHORTS, MONTHS, MONTH_SHORTS);
 const CASE_REGEX = new RegExp('\\b(' + CASE_WORDS.sort((a, b) => b.length - a.length).join('|') + ')\\b', 'gi');
 const UNIT_ALTERNATION = Object.keys(UNITS)
     .sort((a, b) => b.length - a.length)
@@ -139,15 +139,13 @@ const CAL_KEY = 'YYYY-MM-DD';
 const CAL_INPUT_PATTERN = 'DD.MM.YYYY';
 const CAL_TITLE_PATTERN = 'MMMM YYYY';
 const PLAIN_DATE_REGEX = new RegExp('^\\d{2}\\.\\d{2}\\.\\d{4}$');
-//a month named without a day: "08.2025", "2025-08", "2025". A date parser wants a day before it
-//will answer, and the grid only ever needed the month, so these are read here instead
 const MONTH_YEAR_REGEX = new RegExp('^(\\d{1,2})\\s*[./\\-]\\s*(\\d{4})$');
 const YEAR_MONTH_REGEX = new RegExp('^(\\d{4})\\s*[./\\-]\\s*(\\d{1,2})$');
 const YEAR_REGEX = new RegExp('^\\d{4}$');
-//the month word itself, shortened or written out, with the year on either side of it or missing.
-//The words arrive in english, translate has already been over them
-const MONTH_ABBR = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
-const MONTH_WORD_REGEX = new RegExp('^(?:(\\d{4})\\s+)?(' + MONTH_ABBR.join('|') + ')[a-z]*\\.?,?(?:\\s+(\\d{4}))?$', 'i');
+const MONTH_WORD_ALTERNATION = MONTHS.concat(MONTH_SHORTS)
+    .sort((a, b) => b.length - a.length)
+    .join('|');
+const MONTH_WORD_REGEX = new RegExp('^(?:(\\d{4})\\s+)?(?:[^\\s\\d]+\\s+)*?(' + MONTH_WORD_ALTERNATION + ')\\.?,?(?:\\s+(\\d{4}))?$', 'i');
 //"* 2 days", "every 2 weeks", "каждые 3 дня" — the second field turns into a repeat step
 const PATTERN_REGEX = new RegExp('^\\s*(?:\\*|x|х|every|each|кажд[а-яё]*)\\s*(.+)$', 'i');
 const SKIP_REGEX = new RegExp('\\(([^)]*)\\)\\s*$');
@@ -709,6 +707,8 @@ const resolveDates = function (value, referenceDate) {
     //each split is the validation of its own shape: it only answers when every piece is a date
     let listed = splitSeeds(value, referenceDate);
 
+    //days written out one by one are the same days as a range written with a dash, and the app
+    //itself writes a short run the long way, so a run of them repeats as a block either way
     if (null != listed) {
         return {days: listed, block: isConsecutive(listed)};
     }
@@ -728,6 +728,8 @@ const scaleStep = function (step, turns) {
     return step.map(op => ({num: op.num * turns, unit: op.unit}));
 };
 
+//a reference date is the day the repeat is being asked about, and without one there is no day
+//to come forward to: the repeat answers for the seeds exactly as they were typed
 const rollAhead = function (cycle, seeds, skips, referenceDate) {
 
     let today = null == referenceDate ? null : moment(referenceDate).startOf('day'),
@@ -983,6 +985,8 @@ const calendarHtml = function (month) {
             skips: null == LAST_PATTERN ? NO_KEYS : LAST_PATTERN.skips
         },
         title = month.format(CAL_TITLE_PATTERN),
+        //the field sits next to the title and takes its place when it is opened, so the grid
+        //below never moves; it is written out with every head, and only ever one of the two shows
         html = '<div class="cal-head">'
             + '<button type="button" class="cal-nav" data-step="-1" aria-label="Previous month">&#8249;</button>'
             + '<button type="button" class="cal-title" aria-label="Jump to a month">' + title + '</button>'
@@ -1023,53 +1027,10 @@ const renderCalendar = function () {
     holder.innerHTML = calendarHtml(CAL_MONTH);
 };
 
-const firstOf = function (month, year) {
-    return month < 1 || 12 < month ? null : moment([year, month - 1, 1]);
-};
-
-const monthDate = function (text, shownYear) {
-
-    let numeric = text.match(MONTH_YEAR_REGEX);
-
-    if (null != numeric) {
-        return firstOf(+numeric[1], +numeric[2]);
-    }
-
-    let reversed = text.match(YEAR_MONTH_REGEX);
-
-    if (null != reversed) {
-        return firstOf(+reversed[2], +reversed[1]);
-    }
-
-    let word = text.match(MONTH_WORD_REGEX);
-
-    if (null != word) {
-        //a month word with no year stays in the year the grid is already showing
-        return firstOf(MONTH_ABBR.indexOf(word[2].toLowerCase()) + 1, +(word[1] || word[3]) || shownYear);
-    }
-
-    //a year on its own names no month, and the one it starts with is the one to open on
-    return YEAR_REGEX.test(text) ? firstOf(1, +text) : null;
-};
-
-//the same reading the first field gets, stopped at the month: a full date names one, and so
-//does a month written on its own, which is all the grid is being asked for
+//the first field and the title field read the same, because they read through the same parser
 const monthOf = function (value, referenceDate) {
 
-    //russian becomes english here, so the shapes above only ever have to know the one language
-    let text = translate(value.trim());
-
-    if (0 === text.length) {
-        return null;
-    }
-
-    let month = monthDate(text, (null == CAL_MONTH ? moment(referenceDate) : CAL_MONTH).year());
-
-    if (null != month) {
-        return month;
-    }
-
-    let found = parseDate(text, referenceDate);
+    let found = parseDate(value.trim(), referenceDate);
 
     return null == found ? null : found.start.moment().startOf('month');
 };
@@ -1151,6 +1112,8 @@ const toggleActions = function () {
         exclude.classList.toggle('hidden', !repeat);
     }
 
+    //the brackets are the mode: typed in by hand, pressed in with the button or arriving in a
+    //shared link, they all mean the grid is picking days out of the repeat
     setExclude(repeat && null != INPUTS[1].value.match(SKIP_REGEX));
 };
 
@@ -1503,6 +1466,7 @@ const isJump = function (target) {
     return null != target.classList && target.classList.contains('cal-jump');
 };
 
+//the field is a month and not an answer: nothing is calculated, only the grid moves
 const onJumpKeyDown = function (e) {
 
     if (!isJump(e.target)) {
@@ -1513,6 +1477,7 @@ const onJumpKeyDown = function (e) {
 
         closeJump(e.target);
 
+        //the title is where the field was reached from, so it is where the keyboard goes back to
         focusTitle();
 
         return;
@@ -1897,6 +1862,20 @@ const parseWith = function (parser, string, referenceDate) {
     return parser.parse(string, referenceDate, {forwardDate: !BACKWARD_REGEX.test(string)})[0];
 };
 
+const atMidnight = function (found) {
+
+    if (found.start.isCertain('hour')) {
+        return found;
+    }
+
+    let day = found.start.moment().startOf('day');
+
+    return {
+        text: found.text,
+        start: {moment: () => day.clone(), isCertain: (part) => found.start.isCertain(part)}
+    };
+};
+
 //chrono puts a bare date at midday, the app wants the day itself with no clock on it
 const parseAtMidnight = function (parser, string, referenceDate) {
 
@@ -1906,7 +1885,7 @@ const parseAtMidnight = function (parser, string, referenceDate) {
         return found;
     }
 
-    return parseWith(parser, string + ' 00:00:00', referenceDate) || found;
+    return parseWith(parser, string + ' 00:00:00', referenceDate) || atMidnight(found);
 };
 
 //every day the grid writes comes back as DD.MM.YYYY, and chrono costs two parses plus a
@@ -1939,6 +1918,58 @@ const casualDate = function (string, referenceDate) {
     return {text: string, start: {moment: () => day.clone(), isCertain: () => true}};
 };
 
+const monthNumber = function (word) {
+
+    let name = word.toLowerCase();
+
+    for (let i = 0; i < MONTHS.length; i++) {
+
+        if (0 === MONTHS[i].toLowerCase().indexOf(name)) {
+            return i + 1;
+        }
+    }
+
+    return 0;
+};
+
+const monthParts = function (text) {
+
+    let numeric = text.match(MONTH_YEAR_REGEX);
+
+    if (null != numeric) {
+        return {month: +numeric[1], year: +numeric[2]};
+    }
+
+    let reversed = text.match(YEAR_MONTH_REGEX);
+
+    if (null != reversed) {
+        return {month: +reversed[2], year: +reversed[1]};
+    }
+
+    let word = text.match(MONTH_WORD_REGEX);
+
+    if (null != word) {
+        return {month: monthNumber(word[2]), year: +(word[1] || word[3])};
+    }
+
+    //a year on its own names no month, and the one it starts with is the one it means
+    return YEAR_REGEX.test(text) ? {month: 1, year: +text} : null;
+};
+
+const monthDate = function (string) {
+
+    let text = string.trim(),
+        parts = monthParts(text);
+
+    if (null == parts) {
+        return null;
+    }
+
+    let day = moment([parts.year, parts.month - 1, 1]);
+
+    return day.isValid() ? {text: text, start: {moment: () => day.clone(), isCertain: () => true}} : null;
+};
+
 const parseDate = function (string, /*for tests*/ referenceDate) {
 
     let plain = plainDate(string.trim());
@@ -1958,6 +1989,12 @@ const parseDate = function (string, /*for tests*/ referenceDate) {
 
     if (null != casual) {
         return casual;
+    }
+
+    let month = monthDate(string);
+
+    if (null != month) {
+        return month;
     }
 
     //chrono default is month-first (US), en_GB is day-first
