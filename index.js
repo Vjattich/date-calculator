@@ -137,7 +137,17 @@ const CAL_DOW_HTML = CAL_DOW.map(name => '<span class="cal-dow">' + name + '</sp
 const CAL_CELLS = 42;
 const CAL_KEY = 'YYYY-MM-DD';
 const CAL_INPUT_PATTERN = 'DD.MM.YYYY';
+const CAL_TITLE_PATTERN = 'MMMM YYYY';
 const PLAIN_DATE_REGEX = new RegExp('^\\d{2}\\.\\d{2}\\.\\d{4}$');
+//a month named without a day: "08.2025", "2025-08", "2025". A date parser wants a day before it
+//will answer, and the grid only ever needed the month, so these are read here instead
+const MONTH_YEAR_REGEX = new RegExp('^(\\d{1,2})\\s*[./\\-]\\s*(\\d{4})$');
+const YEAR_MONTH_REGEX = new RegExp('^(\\d{4})\\s*[./\\-]\\s*(\\d{1,2})$');
+const YEAR_REGEX = new RegExp('^\\d{4}$');
+//the month word itself, shortened or written out, with the year on either side of it or missing.
+//The words arrive in english, translate has already been over them
+const MONTH_ABBR = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+const MONTH_WORD_REGEX = new RegExp('^(?:(\\d{4})\\s+)?(' + MONTH_ABBR.join('|') + ')[a-z]*\\.?,?(?:\\s+(\\d{4}))?$', 'i');
 //"* 2 days", "every 2 weeks", "каждые 3 дня" — the second field turns into a repeat step
 const PATTERN_REGEX = new RegExp('^\\s*(?:\\*|x|х|every|each|кажд[а-яё]*)\\s*(.+)$', 'i');
 const SKIP_REGEX = new RegExp('\\(([^)]*)\\)\\s*$');
@@ -352,11 +362,8 @@ const formatPick = function (momentDate) {
 };
 
 //an unbroken run of plain days is what a range is short for, so it is written back as one
-const isRun = function (moments) {
-
-    if (moments.length < RANGE_MIN) {
-        return false;
-    }
+//days that follow one another with nothing in between, however many of them there are
+const isConsecutive = function (moments) {
 
     for (let i = 0; i < moments.length; i++) {
 
@@ -371,6 +378,11 @@ const isRun = function (moments) {
     }
 
     return true;
+};
+
+//a run is only worth writing as a range once it is long enough to save reading
+const isRun = function (moments) {
+    return moments.length >= RANGE_MIN && isConsecutive(moments);
 };
 
 const formatPicks = function (moments) {
@@ -509,7 +521,8 @@ const splitSeeds = function (value, referenceDate) {
         return null;
     }
 
-    return found.map(one => fixDate(one, one.start.moment()));
+    return found.map(one => fixDate(one, one.start.moment()))
+        .sort((one, other) => one.valueOf() - other.valueOf());
 };
 
 const parseOne = function (value, referenceDate) {
@@ -697,7 +710,7 @@ const resolveDates = function (value, referenceDate) {
     let listed = splitSeeds(value, referenceDate);
 
     if (null != listed) {
-        return {days: listed, block: false};
+        return {days: listed, block: isConsecutive(listed)};
     }
 
     let span = splitRange(value, referenceDate);
@@ -717,16 +730,16 @@ const scaleStep = function (step, turns) {
 
 const rollAhead = function (cycle, seeds, skips, referenceDate) {
 
-    let today = moment(referenceDate).startOf('day'),
+    let today = null == referenceDate ? null : moment(referenceDate).startOf('day'),
         last = seeds[seeds.length - 1],
         days = stepDays(cycle),
-        turns = 0 === days ? 1 : Math.max(1, Math.floor(today.diff(last, 'days') / days));
+        turns = null == today || 0 === days ? 1 : Math.max(1, Math.floor(today.diff(last, 'days') / days));
 
     for (let i = 0; i < PATTERN_LIMIT; i++) {
 
         let jump = scaleStep(cycle, turns);
 
-        if (!stepBy(jump, last).isBefore(today, 'day')) {
+        if (null == today || !stepBy(jump, last).isBefore(today, 'day')) {
 
             let landed = seeds.map(seed => stepBy(jump, seed))
                 .filter(day => !skips.has(day.format(CAL_KEY)));
@@ -969,9 +982,14 @@ const calendarHtml = function (month) {
             selected: selectedKeys(),
             skips: null == LAST_PATTERN ? NO_KEYS : LAST_PATTERN.skips
         },
+        title = month.format(CAL_TITLE_PATTERN),
         html = '<div class="cal-head">'
             + '<button type="button" class="cal-nav" data-step="-1" aria-label="Previous month">&#8249;</button>'
-            + '<span class="cal-title">' + month.format('MMMM YYYY') + '</span>'
+            + '<button type="button" class="cal-title" aria-label="Jump to a month">' + title + '</button>'
+            + '<input type="text" class="cal-jump cal-off" autocomplete="off" autocorrect="off" spellcheck="false"'
+            + ' enterkeyhint="go"'
+            + ' placeholder="' + title + '"'
+            + ' aria-label="Month to show, for example August 2025, 08.2025 or next year">'
             + '<button type="button" class="cal-nav" data-step="1" aria-label="Next month">&#8250;</button>'
             + '</div><div class="cal-grid">' + CAL_DOW_HTML;
 
@@ -1003,6 +1021,98 @@ const renderCalendar = function () {
     }
 
     holder.innerHTML = calendarHtml(CAL_MONTH);
+};
+
+const firstOf = function (month, year) {
+    return month < 1 || 12 < month ? null : moment([year, month - 1, 1]);
+};
+
+const monthDate = function (text, shownYear) {
+
+    let numeric = text.match(MONTH_YEAR_REGEX);
+
+    if (null != numeric) {
+        return firstOf(+numeric[1], +numeric[2]);
+    }
+
+    let reversed = text.match(YEAR_MONTH_REGEX);
+
+    if (null != reversed) {
+        return firstOf(+reversed[2], +reversed[1]);
+    }
+
+    let word = text.match(MONTH_WORD_REGEX);
+
+    if (null != word) {
+        //a month word with no year stays in the year the grid is already showing
+        return firstOf(MONTH_ABBR.indexOf(word[2].toLowerCase()) + 1, +(word[1] || word[3]) || shownYear);
+    }
+
+    //a year on its own names no month, and the one it starts with is the one to open on
+    return YEAR_REGEX.test(text) ? firstOf(1, +text) : null;
+};
+
+//the same reading the first field gets, stopped at the month: a full date names one, and so
+//does a month written on its own, which is all the grid is being asked for
+const monthOf = function (value, referenceDate) {
+
+    //russian becomes english here, so the shapes above only ever have to know the one language
+    let text = translate(value.trim());
+
+    if (0 === text.length) {
+        return null;
+    }
+
+    let month = monthDate(text, (null == CAL_MONTH ? moment(referenceDate) : CAL_MONTH).year());
+
+    if (null != month) {
+        return month;
+    }
+
+    let found = parseDate(text, referenceDate);
+
+    return null == found ? null : found.start.moment().startOf('month');
+};
+
+const headOf = function (node, selector) {
+    return null == node.parentNode ? null : node.parentNode.querySelector(selector);
+};
+
+//a render swaps the whole head out, so the title is looked up again instead of kept
+const focusTitle = function () {
+
+    let title = document.querySelector('.cal-title');
+
+    if (null != title) {
+        title.focus();
+    }
+};
+
+const openJump = function (title) {
+
+    let field = headOf(title, '.cal-jump');
+
+    if (null == field) {
+        return;
+    }
+
+    title.classList.add('cal-off');
+    field.classList.remove('cal-off');
+
+    //the month already on screen is the placeholder, so an empty field says "leave it alone"
+    field.value = '';
+    field.focus();
+};
+
+const closeJump = function (field) {
+
+    let title = headOf(field, '.cal-title');
+
+    field.classList.add('cal-off');
+
+    if (null != title) {
+        title.classList.remove('cal-off');
+    }
 };
 
 //jump the grid to the answer, or leave the month the user was browsing
@@ -1041,10 +1151,7 @@ const toggleActions = function () {
         exclude.classList.toggle('hidden', !repeat);
     }
 
-    //the days can only be taken out of a repeat, so the mode goes with it
-    if (!repeat && EXCLUDE_ON) {
-        setExclude(false);
-    }
+    setExclude(repeat && null != INPUTS[1].value.match(SKIP_REGEX));
 };
 
 //a picked day keeps the time of day that field already carried
@@ -1392,6 +1499,62 @@ const onCalendarPointerCancel = function () {
     }
 };
 
+const isJump = function (target) {
+    return null != target.classList && target.classList.contains('cal-jump');
+};
+
+const onJumpKeyDown = function (e) {
+
+    if (!isJump(e.target)) {
+        return;
+    }
+
+    if ('Escape' === e.key) {
+
+        closeJump(e.target);
+
+        focusTitle();
+
+        return;
+    }
+
+    if ('Enter' !== e.key && ENTER_KEY !== e.keyCode) {
+        return;
+    }
+
+    e.preventDefault();
+
+    let value = e.target.value.trim();
+
+    if (0 === value.length) {
+        closeJump(e.target);
+        return;
+    }
+
+    let month = monthOf(value, new Date());
+
+    //the field stays open on a bad month, so the typo can be fixed instead of retyped
+    if (null == month) {
+        flashTooltip('date-tooltip');
+        return;
+    }
+
+    CAL_MONTH = month;
+
+    renderCalendar();
+
+    //the innerHTML swap drops focus, keyboard users would have to tab back
+    focusTitle();
+};
+
+//focusout, not blur: the listener sits on the grid and the field is replaced with every render
+const onJumpFocusOut = function (e) {
+
+    if (isJump(e.target)) {
+        closeJump(e.target);
+    }
+};
+
 const onCalendarClick = function (e) {
 
     //the long press already answered, the click it drags behind it is noise
@@ -1417,6 +1580,13 @@ const onCalendarClick = function (e) {
             same.focus();
         }
 
+        return;
+    }
+
+    let title = e.target.closest('.cal-title');
+
+    if (null != title) {
+        openJump(title);
         return;
     }
 
@@ -1508,7 +1678,7 @@ const runCalc = function () {
         return '';
     }
 
-    let text = calcRes(INPUTS);
+    let text = calcRes(INPUTS, new Date());
 
     renderResult(text);
 
@@ -1923,8 +2093,11 @@ const showCopied = function (text) {
 
 const setExclude = function (on) {
 
-    EXCLUDE_ON = on;
+    if (EXCLUDE_ON === on) {
+        return;
+    }
 
+    EXCLUDE_ON = on;
     PICK_ANCHOR = null;
 
     let button = document.getElementById('exclude-btn');
@@ -1935,28 +2108,15 @@ const setExclude = function (on) {
     }
 };
 
+//the button puts the brackets on the repeat or takes them back off, and the mode follows them
 const onExclude = function () {
 
-    let value = INPUTS[1].value.trim(),
-        match = value.match(SKIP_REGEX);
+    let value = INPUTS[1].value.trim();
 
-    if (EXCLUDE_ON) {
+    INPUTS[1].value = null == value.match(SKIP_REGEX)
+        ? value + ' ()'
+        : value.replace(SKIP_REGEX, '').trim();
 
-        if (null != match && 0 === match[1].trim().length) {
-            INPUTS[1].value = value.replace(SKIP_REGEX, '').trim();
-        }
-
-        setExclude(false);
-        runCalc();
-
-        return;
-    }
-
-    if (null == match) {
-        INPUTS[1].value = value + ' ()';
-    }
-
-    setExclude(true);
     runCalc();
 };
 
@@ -2029,6 +2189,8 @@ window.onload = function () {
     let view = document.getElementById('calendar-view');
 
     view.addEventListener('click', onCalendarClick);
+    view.addEventListener('keydown', onJumpKeyDown);
+    view.addEventListener('focusout', onJumpFocusOut);
     view.addEventListener('pointerdown', onCalendarPointerDown, {passive: true});
     view.addEventListener('pointermove', onCalendarPointerMove, {passive: true});
     view.addEventListener('pointerup', onCalendarPointerUp, {passive: true});

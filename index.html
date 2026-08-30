@@ -54,6 +54,7 @@
                 "Add or subtract years, months, weeks, days, hours, minutes and seconds",
                 "Count the time between two dates",
                 "Build a repeating pattern from picked days and get the next date it falls on",
+                "Jump the calendar to any month by name: August 2025, 08.2025, 2025, next year",
                 "Share any answer as a link"
             ],
             "isAccessibleForFree": true,
@@ -204,7 +205,47 @@
         }
 
         .cal-title {
+            background: none;
+            border: 0;
+            padding: 0 0.3em;
+            border-radius: 4px;
+            color: inherit;
+            font: inherit;
             font-weight: bold;
+            line-height: 1.4;
+            cursor: pointer;
+            transition: background 0.1s ease-in;
+        }
+
+        .cal-title:hover {
+            background: var(--cell-hover);
+        }
+
+        /* the field stands where the title stood, so the head keeps its height */
+        .cal-jump {
+            width: 8em;
+            padding: 0 0.3em;
+            border: 0;
+            border-bottom: var(--line) solid var(--ink);
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-weight: bold;
+            line-height: 1.4;
+            text-align: center;
+        }
+
+        .cal-jump::placeholder {
+            color: var(--muted);
+            font-weight: normal;
+        }
+
+        .cal-jump:focus {
+            outline: none;
+        }
+
+        .cal-off {
+            display: none;
         }
 
         .cal-nav {
@@ -482,7 +523,7 @@
                 animation: none;
             }
 
-            .result, .actions, .calendar-holder, .exclude-holder, .exclude-btn-style, .calendar-view, .cal-day, .cal-nav {
+            .result, .actions, .calendar-holder, .exclude-holder, .exclude-btn-style, .calendar-view, .cal-day, .cal-nav, .cal-title {
                 transition: none;
             }
         }
@@ -811,7 +852,10 @@
                 of the repeat, and a turn with nothing left in it is skipped whole</dd>
 
             <dt>Calendar</dt>
-            <dd>click fills the first field, ctrl-click the second, shift-click or a long press picks several days</dd>
+            <dd>click fills the first field, ctrl-click the second, shift-click or a long press picks several days.
+                The month title is a field of its own: <code>November 1996</code>, <code>ноябрь 1996</code>,
+                <code>11.1996</code>, <code>2025</code>, <code>next year</code> — a month with no day is read as
+                the first of it, and the grid opens there instead of on today</dd>
 
             <dt>Keys</dt>
             <dd><code>Enter</code> calculates, <code>Tab</code> swaps fields, <code>Esc</code> steps out of them; on

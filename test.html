@@ -239,24 +239,35 @@
             checkWithRef('5 days ago', '', daysAgo);
             assert.notEqual(daysAgo, inThreeDays);
 
-            //a repeat moves every day in a comma list checkWithRef by the step, and nothing else
-            let twoDays = check('22.11.1996, 23.11.1996', '* 2 d', '24.11.1996, 25.11.1996')
-                , everyWeek = check('22.11.1996, 23.11.1996', 'every week', '29.11.1996, 30.11.1996')
-                , everyThree = check('22.11.1996, 23.11.1996', 'every 3 days', '25.11.1996, 26.11.1996')
+            //a run of days repeats as a block whichever way it is written: the days come round
+            //after the run itself, and then the step
+            let twoDays = check('22.11.1996, 23.11.1996', '* 2 d', '26.11.1996, 27.11.1996')
+                , everyWeek = check('22.11.1996, 23.11.1996', 'every week', '06.12.1996, 07.12.1996')
+                , everyThree = check('22.11.1996, 23.11.1996', 'every 3 days', '27.11.1996, 28.11.1996')
             ;
 
-            check('22.11.1996, 23.11.1996, 24.11.1996', '* 2 days', '24.11.1996, 25.11.1996, 26.11.1996');
+            //the same three days, written the two ways the app writes them
+            check('22.11.1996, 23.11.1996, 24.11.1996', '* 1 day', '26.11.1996, 27.11.1996, 28.11.1996');
+            check('22.11.1996 - 24.11.1996', '* 1 day', '26.11.1996, 27.11.1996, 28.11.1996');
+            check('22.11.1996, 23.11.1996, 24.11.1996', '* 2 days', '27.11.1996, 28.11.1996, 29.11.1996');
+
+            //days with a gap in them are not a run, so each one moves on its own
             check('22.11.1996, 25.11.1996', '* 1 day', '23.11.1996, 26.11.1996');
             check('22.11.1996', '* 2 days', '24.11.1996');
+
+            //a list has no direction, and comes back in order
+            check('23.11.1996, 22.11.1996', '', '22.11.1996, 23.11.1996');
+            check('23.11.1996, 22.11.1996', '* 2 d', twoDays);
+
             check('22.11.1996, 23.11.1996', 'каждые 3 дня', everyThree);
-            check('22.11.1996, 23.11.1996', 'x2 weeks', '06.12.1996, 07.12.1996');
+            check('22.11.1996, 23.11.1996', 'x2 weeks', '13.12.1996, 14.12.1996');
 
             //a repeat has no direction and cannot stand still
             check('22.11.1996, 23.11.1996', '* -2 days', twoDays);
 
-            check('22.11.1996, 23.11.1996', 'every day', '23.11.1996, 24.11.1996');
-            check('22.11.1996, 23.11.1996', 'every month', '22.12.1996, 23.12.1996');
-            check('22.11.1996, 23.11.1996', '* 1 week 2 days', '01.12.1996, 02.12.1996');
+            check('22.11.1996, 23.11.1996', 'every day', '25.11.1996, 26.11.1996');
+            check('22.11.1996, 23.11.1996', 'every month', '22.01.1997, 23.01.1997');
+            checkWithRef('22.11.1996, 23.11.1996', '* 1 week 2 days', '03.12.1996, 04.12.1996');
             check('22.11.1996, 23.11.1996', '', '22.11.1996, 23.11.1996');
             check('', '* 2 days', '');
             checkWithRef('December 25, 2026', '');
@@ -266,7 +277,7 @@
 
             //'today' moves, so the answer is built the way the app builds it
             check('today, tomorrow', '* 2 d',
-                moment().add(2, 'days').format('DD.MM.YYYY') + ', ' + moment().add(3, 'days').format('DD.MM.YYYY'));
+                moment().add(4, 'days').format('DD.MM.YYYY') + ', ' + moment().add(5, 'days').format('DD.MM.YYYY'));
 
             //a run of days written the short way, and the shortest run that is still written out
             let range = check('22.11.1996 - 25.11.1996', '', '22.11.1996 - 25.11.1996');
@@ -364,6 +375,39 @@
             check('22.11.1996', '1 г', YEAR);
             check('22.11.1996', '1 д', DAY);
             check('22.11.1996', '1 с', SECOND);
+
+            //a day named in brackets drops out of the turn the repeat lands on. One day is the
+            //case to keep an eye on: the list split needs a comma before it reads anything
+            checkWithRef('22.11.1996, 23.11.1996', '* 2 d (27.11.1996)', '26.11.1996');
+            checkWithRef('22.11.1996, 23.11.1996', '* 2 d ( 27.11.1996 )', '26.11.1996');
+
+            //the brackets take a list and a range, the same two shapes the first field takes
+            checkWithRef('22.11.1996, 23.11.1996', '* 2 d (26.11.1996, 27.11.1996)', '30.11.1996, 01.12.1996');
+            checkWithRef('22.11.1996, 23.11.1996', '* 2 d (26.11.1996 - 01.12.1996)', '04.12.1996, 05.12.1996');
+
+            //empty brackets are the button waiting for a day, and they answer like no brackets
+            checkWithRef('22.11.1996, 23.11.1996', '* 2 d ()', '26.11.1996, 27.11.1996');
+            checkWithRef('22.11.1996, 23.11.1996', '* 2 d ( )', '26.11.1996, 27.11.1996');
+            checkWithRef('22.11.1996, 23.11.1996', '* 2 d (nonsense)', '26.11.1996, 27.11.1996');
+
+            //a day that is not on the repeat leaves it alone
+            checkWithRef('22.11.1996, 23.11.1996', '* 2 d (25.11.1996)', '26.11.1996, 27.11.1996');
+
+            //a turn with nothing left in it is a turn that does not happen
+            checkWithRef('22.11.1996, 23.11.1996', 'every week (06.12.1996)', '07.12.1996');
+            checkWithRef('22.11.1996, 23.11.1996', 'every week (06.12.1996, 07.12.1996)', '20.12.1996, 21.12.1996');
+
+            //brackets read every way of writing a step
+            checkWithRef('22.11.1996, 23.11.1996', 'каждые 3 дня (27.11.1996)', '28.11.1996');
+            checkWithRef('22.11.1996, 23.11.1996', 'x2 weeks (13.12.1996)', '14.12.1996');
+
+            //a block keeps its shape around the day taken out of it, and skips whole when emptied
+            checkWithRef('22.11.1996 - 25.11.1996', '* 1 day (28.11.1996)', '27.11.1996, 29.11.1996, 30.11.1996');
+            checkWithRef('22.11.1996 - 25.11.1996', '* 1 day (27.11.1996 - 30.11.1996)', '02.12.1996 - 05.12.1996');
+
+            //a repeat that has been sat on comes forward past the days that were taken out
+            checkWithRef('01.11.1996, 02.11.1996', '* 1 week', '29.11.1996, 30.11.1996');
+            checkWithRef('01.11.1996, 02.11.1996', '* 1 week (29.11.1996, 30.11.1996)', '13.12.1996, 14.12.1996');
         })
 
         QUnit.test('format duration test', assert => {
